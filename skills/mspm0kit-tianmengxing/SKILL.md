@@ -105,9 +105,11 @@ For simple projects, keeping most logic in `main.c` is acceptable.
 - If SysConfig emits warnings, report them — don't call it "clean".
 - If hardware behavior is unverified, say "verification stopped at compile level".
 
-### R3: External Path Permission
+### R3: External Path Access
 
-- Every access to external paths (CCS, SDK) requires a permission prompt.
+- Do NOT ask for path permission upfront. Try the operation first.
+- Only when a script fails due to missing/invalid paths, follow the Path Configuration flow above.
+- After paths are configured, access CCS/SDK files without re-prompting each time.
 
 ## Pin Table — Tianmengxing MSPM0G3507
 
@@ -153,14 +155,19 @@ PB0–PB5, PB12, PB13, PB15–PB20, PB23–PB25, PB27
 
 ## Path Configuration
 
-The skill stores toolchain paths in `config.json`. When the skill needs to access external paths:
+The skill stores toolchain paths in `config.json`.
 
-1. **CCS directory**: Ask "是否允许我读取 CCS 配置（`<ccs_root>`）？"
-2. **SDK directory**: Ask "是否允许我读取 SDK 内容（`<sdk_root>`）？"
+**Do NOT pre-emptively ask the user for paths or permission.** Follow this order:
 
-If the user declines, use the built-in peripheral reference docs in `peripherals/` as fallback knowledge.
-
-If `config.json` does not exist, run `python scripts/setup.py` first.
+1. **Try first.** Run the script (scaffold/build/flash) without asking for paths.
+2. **If it fails** because `config.json` is missing or paths are invalid, ask the user to provide the paths:
+   - "请提供 CCS 安装目录（例如 `C:/ti/ccstheia140`）："
+   - "请提供 MSPM0 SDK 示例目录（例如 `C:/ti/mspm0_sdk_2_10_00_04/examples/nortos`）："
+3. **Update `config.json`** via `python scripts/setup.py` or by writing directly.
+4. **If the user-provided path does not exist or lacks expected files** (e.g. no `LP_MSPM0G3507/` subdirectory, no `.syscfg` files), do NOT silently accept it. Say:
+   - "在 `<user_path>` 中没有发现 MSPM0G3507 的 SDK 示例（预期存在 `LP_MSPM0G3507/` 目录）。是否需要我自动搜索？"
+5. **If the user says yes**, use `scripts/setup.py` or search common install locations (e.g. `C:/ti/`, `C:/Program Files/Texas Instruments/`) for the correct path.
+6. **Retry** the failed script after paths are fixed.
 
 ## Tools
 
