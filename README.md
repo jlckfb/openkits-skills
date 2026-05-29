@@ -8,13 +8,13 @@
 
 ```bash
 # 安装单个板卡 skill
-npx skills add LaoGuaiGe/openkits-skills -s mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing
 
 # 安装整个平台的 skill
-npx skills add LaoGuaiGe/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
 
 # 指定目标 agent
-npx skills add LaoGuaiGe/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae
+npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae
 ```
 
 ### 手动安装
