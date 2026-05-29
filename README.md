@@ -1,87 +1,87 @@
 # openkits-skills
 
-立创开发板 AI 编程助手 skill 集合。让 AI 编程助手（Claude Code、Codex、Trae、Cursor 等）理解你的开发板引脚、外设和工具链。
+[中文](README.zh-CN.md)
 
-## 安装
+LCSC development board AI agent skill collection. Teach AI coding agents (Claude Code, Codex, Trae, Cursor, and 28+ others) to understand your board's pins, peripherals, and toolchain.
 
-### 推荐：npx skills（支持 28+ agent）
+## Install
+
+### Recommended: npx skills (28+ agents supported)
 
 ```bash
-# 安装单个板卡 skill
+# Install a single board skill
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing
 
-# 安装整个平台的 skill
+# Install all skills for a platform
 npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
 
-# 指定目标 agent
+# Target specific agents
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae
 ```
 
-### 手动安装
+### Manual Install
 
-将 `skills/<skill-name>/` 复制到对应 agent 的 skills 目录：
+Copy `skills/<skill-name>/` to the agent's skills directory:
 
-| Agent | 安装路径 |
-|-------|---------|
+| Agent | Install Path |
+|-------|-------------|
 | Claude Code | `~/.claude/skills/<name>/` |
 | Codex | `~/.agents/skills/<name>/` |
 | Trae | `~/.trae/skills/<name>/` |
 | Cursor | `~/.cursor/skills/<name>/` |
 
-## 卸载
+## Uninstall
 
 ### npx skills
 
 ```bash
-# 查看已安装的 skill
+# List installed skills
 npx skills list
 
-# 删除指定 skill
+# Remove a specific skill
 npx skills remove mspm0kit-tianqiaoxing
 
-# 删除全局安装的
+# Remove global install
 npx skills remove mspm0kit-tianqiaoxing -g
 
-# 删除所有
+# Remove all
 npx skills remove --all
 ```
 
-### 手动删除
-
-直接删除对应目录：
+### Manual
 
 ```bash
 rm -rf ~/.claude/skills/mspm0kit-tianqiaoxing   # Claude Code
 rm -rf ~/.agents/skills/mspm0kit-tianqiaoxing   # Codex
 ```
 
-## 可用 Skill
+## Available Skills
 
-### TI MSPM0 平台
+### TI MSPM0 Platform
 
-| Skill | 类型 | 说明 |
-|-------|------|------|
-| [mspm0-ccs](skills/mspm0-ccs/) | 平台 | MSPM0 SysConfig/DriverLib 通用规则 |
-| [mspm0kit-tianqiaoxing](skills/mspm0kit-tianqiaoxing/) | 板卡 | 天巧星 MSPM0G3519 开发板 |
-| [mspm0kit-tianmengxing](skills/mspm0kit-tianmengxing/) | 板卡 | 天猛星 MSPM0G3507 开发板 |
+| Skill | Type | Description |
+|-------|------|-------------|
+| [mspm0-ccs](skills/mspm0-ccs/) | Platform | MSPM0 SysConfig/DriverLib general rules |
+| [mspm0kit-tianqiaoxing](skills/mspm0kit-tianqiaoxing/) | Board | Tianqiaoxing MSPM0G3519 dev board |
+| [mspm0kit-tianmengxing](skills/mspm0kit-tianmengxing/) | Board | Tianmengxing MSPM0G3507 dev board |
 
-### 其他平台
+### Other Platforms
 
-待添加：STM32 / ESP32 / GD32 / Rockchip / K230 / RP2350 / CW32 / 瑞萨 / FPGA / SF32LB52
+Coming soon: STM32 / ESP32 / GD32 / Rockchip / K230 / RP2350 / CW32 / Renesas / FPGA / SF32LB52
 
-## 添加新板
+## Add a New Board
 
-1. 确认归属的 MCU 平台，若尚无平台 skill 则先创建（参考 [CLAUDE.md](CLAUDE.md) 规范）
-2. 在 `skills/` 下按命名规则创建板卡目录：
+1. Identify the MCU platform. If no platform skill exists, create one first (see [CLAUDE.md](CLAUDE.md)).
+2. Copy `templates/new-board/`, fill in the 3 template sheets, and create the skill directory under `skills/`:
 
 ```
 skills/<board-name>/
-├── SKILL.md              # 含 name、requires、pin 表、工作流
-├── scripts/              # scaffold.py、build.py、flash.py
-├── peripherals/          # 每个外设一个 .md（gpio.md、uart.md …）
-└── examples/             # 板卡独有示例（含 manifest.json）
+├── SKILL.md              # name, requires, pin table, workflow
+├── scripts/              # scaffold.py, build.py, flash.py
+├── peripherals/          # one .md per peripheral (gpio.md, uart.md, …)
+└── examples/             # board-specific examples (with manifest.json)
 ```
 
-3. 更新本 README 的"可用 Skill"表格
+3. Update the "Available Skills" table above.
 
-详见完整开发规范：[CLAUDE.md](CLAUDE.md)。
+Full spec: [CLAUDE.md](CLAUDE.md).
