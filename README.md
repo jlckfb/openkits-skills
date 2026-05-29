@@ -68,6 +68,19 @@ rm -rf ~/.agents/skills/mspm0kit-tianqiaoxing   # Codex
 
 待添加：STM32 / ESP32 / GD32 / Rockchip / K230 / RP2350 / CW32 / 瑞萨 / FPGA / SF32LB52
 
-## 开发
+## 添加新板
 
-参见 [CLAUDE.md](CLAUDE.md)。
+1. 确认归属的 MCU 平台，若尚无平台 skill 则先创建（参考 [CLAUDE.md](CLAUDE.md) 规范）
+2. 在 `skills/` 下按命名规则创建板卡目录：
+
+```
+skills/<board-name>/
+├── SKILL.md              # 含 name、requires、pin 表、工作流
+├── scripts/              # scaffold.py、build.py、flash.py
+├── peripherals/          # 每个外设一个 .md（gpio.md、uart.md …）
+└── examples/             # 板卡独有示例（含 manifest.json）
+```
+
+3. 更新本 README 的"可用 Skill"表格
+
+详见完整开发规范：[CLAUDE.md](CLAUDE.md)。
