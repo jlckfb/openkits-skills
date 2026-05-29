@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "imu_lsm6ds3",
+  "title": "LSM6DS3 IMU + AHRS Fusion",
+  "description": "6-axis IMU on software I2C (PA28/PA27), FusionAhrs attitude estimation.",
+  "clock": {"cpuclk_hz": 80000000},
+  "validated": true,
+  "validation_level": "hardware",
+  "complexity": "basic",
+  "peripherals": ["GPIO", "TIMER", "SYSCTL", "Board"],
+  "pins": ["PA27", "PA28"]
+}

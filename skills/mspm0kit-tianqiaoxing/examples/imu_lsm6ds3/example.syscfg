@@ -1,0 +1,54 @@
+/**
+ * @cliArgs --device "MSPM0G351X" --part "Default" --package "LQFP-64(PM)" --product "mspm0_sdk@2.05.01.01"
+ * @v2CliArgs --device "MSPM0G3519" --package "LQFP-64(PM)" --product "mspm0_sdk@2.05.01.01"
+ * @versions {"tool":"1.24.0+4110"}
+ */
+const GPIO   = scripting.addModule("/ti/driverlib/GPIO", {}, false);
+const GPIO1  = GPIO.addInstance();
+const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
+const TIMER  = scripting.addModule("/ti/driverlib/TIMER", {}, false);
+const TIMER1 = TIMER.addInstance();
+
+/* 80 MHz clock */
+SYSCTL.forceDefaultClkConfig = true;
+SYSCTL.clockTreeEn           = true;
+scripting.suppress("For best practices when the CPUCLK is running at 32MHz and above, clear the flash status bit using DL_FlashCTL_executeClearStatus\\(\\) before executing any flash operation\\. Otherwise there may be false positives\\.", SYSCTL);
+const divider9       = system.clockTree["UDIV"]; divider9.divideValue = 2;
+const multiplier2         = system.clockTree["PLL_QDIV"]; multiplier2.multiplyValue = 4;
+const mux4       = system.clockTree["EXHFMUX"]; mux4.inputSelect = "EXHFMUX_XTAL";
+const mux8       = system.clockTree["HSCLKMUX"]; mux8.inputSelect = "HSCLKMUX_SYSPLL0";
+const mux12       = system.clockTree["SYSPLLMUX"]; mux12.inputSelect = "zSYSPLLMUX_HFCLK";
+const pinFunction4 = system.clockTree["HFXT"]; pinFunction4.inputFreq = 40;
+pinFunction4.enable = true; pinFunction4.HFXTStartup = 10; pinFunction4.HFCLKMonitor = true;
+pinFunction4.peripheral.$assign = "SYSCTL";
+pinFunction4.peripheral.hfxInPin.$assign = "PA5";
+pinFunction4.peripheral.hfxOutPin.$assign = "PA6";
+
+const Board                       = scripting.addModule("/ti/driverlib/Board", {}, false);
+Board.peripheral.$assign          = "DEBUGSS";
+Board.peripheral.swclkPin.$assign = "PA20";
+Board.peripheral.swdioPin.$assign = "PA19";
+
+/* IMU software I2C: PA28=SDA, PA27=SCL */
+GPIO1.$name                          = "IMU";
+GPIO1.associatedPins.create(2);
+GPIO1.associatedPins[0].$name        = "SDA";
+GPIO1.associatedPins[0].initialValue = "SET";
+GPIO1.associatedPins[0].assignedPort = "PORTA";
+GPIO1.associatedPins[0].assignedPin  = "28";
+GPIO1.associatedPins[0].pin.$assign  = "PA28";
+GPIO1.associatedPins[1].$name        = "SCL";
+GPIO1.associatedPins[1].initialValue = "SET";
+GPIO1.associatedPins[1].assignedPort = "PORTA";
+GPIO1.associatedPins[1].assignedPin  = "27";
+GPIO1.associatedPins[1].pin.$assign  = "PA27";
+
+/* System tick: TIMA0 5ms */
+TIMER1.timerClkDiv = 8; TIMER1.timerClkPrescale = 10;
+TIMER1.timerStartTimer = true; TIMER1.timerMode = "PERIODIC";
+TIMER1.interrupts = ["ZERO"]; TIMER1.interruptPriority = "3";
+TIMER1.$name = "TIMER_TICK"; TIMER1.timerPeriod = "5 ms";
+TIMER1.peripheral.$assign = "TIMA0";
+
+const ProjectConfig              = scripting.addModule("/ti/project_config/ProjectConfig", {}, false);
+ProjectConfig.migrationCondition = true;

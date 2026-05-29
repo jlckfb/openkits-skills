@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "wireless_uart7",
+  "title": "Wireless UART7 Echo",
+  "description": "2.4GHz wireless UART module on PB17(TX)/PB18(RX), 9600 baud echo demo.",
+  "board": "Tianqiaoxing MSPM0G3519 LQFP-64",
+  "device": "MSPM0G351X",
+  "package": "LQFP-64(PM)",
+  "product": "mspm0_sdk@2.05.01.01",
+  "clock": {"cpuclk_hz": 80000000},
+  "validated": true,
+  "validation_level": "hardware",
+  "complexity": "basic",
+  "peripherals": ["UART", "GPIO", "SYSCTL", "Board"],
+  "pins": ["PB17", "PB18", "PB23"],
+  "source_files": ["src/mid_wireless_uart.c", "src/mid_wireless_uart.h", "main.c"]
+}
