@@ -28,6 +28,33 @@ npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code cod
 | Trae | `~/.trae/skills/<name>/` |
 | Cursor | `~/.cursor/skills/<name>/` |
 
+## 卸载
+
+### npx skills
+
+```bash
+# 查看已安装的 skill
+npx skills list
+
+# 删除指定 skill
+npx skills remove mspm0kit-tianqiaoxing
+
+# 删除全局安装的
+npx skills remove mspm0kit-tianqiaoxing -g
+
+# 删除所有
+npx skills remove --all
+```
+
+### 手动删除
+
+直接删除对应目录：
+
+```bash
+rm -rf ~/.claude/skills/mspm0kit-tianqiaoxing   # Claude Code
+rm -rf ~/.agents/skills/mspm0kit-tianqiaoxing   # Codex
+```
+
 ## 可用 Skill
 
 ### TI MSPM0 平台
