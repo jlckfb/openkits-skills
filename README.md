@@ -63,6 +63,7 @@ rm -rf ~/.agents/skills/mspm0kit-tianqiaoxing   # Codex
 |-------|------|------|
 | [mspm0-ccs](skills/mspm0-ccs/) | 平台 | MSPM0 SysConfig/DriverLib 通用规则 |
 | [mspm0kit-tianqiaoxing](skills/mspm0kit-tianqiaoxing/) | 板卡 | 天巧星 MSPM0G3519 开发板 |
+| [mspm0kit-tianmengxing](skills/mspm0kit-tianmengxing/) | 板卡 | 天猛星 MSPM0G3507 开发板 |
 
 ### 其他平台
 
