@@ -39,6 +39,16 @@ GPIO_UART_0_TX_PIN  → DL_GPIO_PIN_10
 GPIO_UART_0_RX_PIN  → DL_GPIO_PIN_11
 ```
 
+## Baud Rate & Clock Source Constraint
+
+| Clock Source | Max Baud Rate | Notes |
+|-------------|---------------|-------|
+| LFCLK (32768 Hz) | ~10900 | **无法支持 115200**。需 115200+ 时必须切换时钟源 |
+| MFCLK (4 MHz) | ~1.3M | 推荐用于 115200 |
+| BUSCLK (40 MHz) | ~13M | 高速通信 |
+
+> SDK 示例 `uart_rw_multibyte_fifo_poll` 默认使用 LFCLK。如果用户需要 115200，必须先在 `.syscfg` 中将 UART 时钟源从 LFCLK 切换为 MFCLK 或 BUSCLK。
+
 ## Key APIs
 
 ```c

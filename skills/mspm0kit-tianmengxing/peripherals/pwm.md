@@ -1,22 +1,19 @@
-# PWM / Timer on Tianmengxing G3507
+# PWM on Tianmengxing G3507
 
-## SDK Examples
+## SDK Example
 
-| Example | What It Does |
-|---------|-------------|
-| `timg_32bit_timer_mode_pwm_edge_sleep` | 32-bit PWM edge-aligned with sleep |
-| `tima_timer_mode_periodic_repeat_count` | Periodic timer with repeat count |
+`timg_32bit_timer_mode_pwm_edge_sleep` — 32-bit PWM edge-aligned with sleep
 
 ## Pin Mapping (LP → Tianmengxing)
 
 SDK uses TIMG12 on PB6(C0)/PB7(C1).
 Tianmengxing: PB6/PB7 occupied by SPI Flash → use TIMG0 or TIMG2 on free pins.
 
-## Available Timer Instances
+## Available Timer Instances for PWM
 
 | Timer | Status | Tianmengxing Usage |
 |-------|--------|--------------------|
-| TIMA0 | Free | System tick, PWM, capture |
+| TIMA0 | Free | PWM, capture |
 | TIMA1 | Free | PWM, capture |
 | TIMG0 | Free | General PWM |
 | TIMG6 | Free | General PWM |
@@ -47,15 +44,13 @@ SysConfig has TWO different modules for timer peripherals. Do NOT confuse them:
 
 | `/ti/driverlib/PWM` | `/ti/driverlib/TIMER` |
 |---------------------|----------------------|
-| For PWM output (breathing LED, servo, etc.) | For periodic interrupts (tick, timeout) |
+| For PWM output (breathing LED, servo, motor control) | For periodic interrupts (tick, timeout) → [timer.md](timer.md) |
 | No `timerMode` — PWM mode is implicit | `timerMode`: `ONE_SHOT / PERIODIC / ...` (NO `EDGE_ALIGN_PWM`) |
 | `clockPrescale` (one value) | `timerClkDiv` + `timerClkPrescale` (two values) |
 | `timerCount` (pure number) | `timerPeriod` (string, e.g. `"5 ms"`) |
 | Channels: `PWM_CHANNEL_0.dutyCycle` | No PWM channels |
 
-## SysConfig JS Snippets
-
-### PWM output (1 kHz, 50% duty on TIMG0 free pin)
+## SysConfig JS Snippet (PWM output, 1 kHz, 50% duty)
 
 ```js
 const PWM  = scripting.addModule("/ti/driverlib/PWM", {}, false);
@@ -72,26 +67,16 @@ PWM1.peripheral.ccp0Pin.$assign = "PA3";
 PWM1.PWM_CHANNEL_0.dutyCycle    = 50;
 ```
 
-### Periodic timer interrupt (5 ms interval)
-
-```js
-const TIMER  = scripting.addModule("/ti/driverlib/TIMER", {}, false);
-const TIMER1 = TIMER.addInstance();
-
-TIMER1.timerClkDiv        = 8;
-TIMER1.timerClkPrescale   = 10;      // 80 MHz / 8 / 10 = 1 MHz
-TIMER1.timerStartTimer    = true;
-TIMER1.timerMode          = "PERIODIC";
-TIMER1.interrupts         = ["ZERO"];
-TIMER1.interruptPriority  = "3";
-TIMER1.$name              = "TIMER_TICK";
-TIMER1.timerPeriod        = "5 ms";  // 1 MHz * 0.005 = 5000 counts
-TIMER1.peripheral.$assign = "TIMA0";
-```
-
 ## SysConfig Naming Rules
 
 - All `$name` values must be **globally unique** across all instances and pins.
 - Pin names within an instance are automatically prefixed: `GPIO_<instance>$name`_`<pin>$name`_PIN`
   - Example: instance `$name = "LEDS"`, pin `$name = "LED"` → `LEDS_LED_PIN`
 - Avoid pin names that match their instance name (e.g. instance `$name = "LED"` with pin `$name = "LED"` causes `$name` collision).
+
+## Key APIs
+
+```c
+DL_TimerG_setCaptureCompareValue(PWM_0_INST, duty, DL_TIMER_CC_0_INDEX);
+DL_TimerG_startCounter(PWM_0_INST);
+```

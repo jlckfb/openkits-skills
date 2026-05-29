@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Clean up a CCS project: remove duplicate .c, generated files in root, stale ticlang/."""
+"""Clean up a CCS project: remove duplicate .c, generated files in root, stale ticlang/,
+and fix IAR/Keil references in makefiles."""
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -17,7 +19,6 @@ def main(project_dir: str) -> int:
     skip_dirs = {"Debug", "ticlang", "targetConfigs", ".settings", ".git"}
 
     # 1. Remove duplicate .c files between root and subdirectories
-    #    (AI sometimes puts a copy in root by mistake; keep the subdir version)
     root_c_files = {f.name for f in proj.glob("*.c")}
     for d in proj.iterdir():
         if not d.is_dir() or d.name in skip_dirs:
@@ -56,6 +57,27 @@ def main(project_dir: str) -> int:
         print("[dir] removed src/ (old flat structure)")
         fixed += 1
 
+    # 5. Fix makefiles: remove IAR startup file references
+    for mk in list(proj.glob("*.mak")) + list(proj.glob("makefile*")) + list(proj.glob("*.mk")):
+        content = mk.read_text(encoding="utf-8", errors="replace")
+        updated = content
+
+        # Remove IAR startup files from OBJECTS
+        updated = re.sub(r'startup_mspm0g350x_iar\.o\s*', '', updated)
+        # Remove IAR object rules (entire line containing ../iar/)
+        updated = re.sub(r'^.*\.\./iar/.*$\n?', '', updated, flags=re.MULTILINE)
+        # Remove -I../iar include paths
+        updated = re.sub(r'-I\.\./iar\s*', '', updated)
+        # Remove Keil startup references
+        updated = re.sub(r'startup_mspm0g350x_keil\.o\s*', '', updated)
+        updated = re.sub(r'^.*\.\./keil/.*$\n?', '', updated, flags=re.MULTILINE)
+        updated = re.sub(r'-I\.\./keil\s*', '', updated)
+
+        if updated != content:
+            mk.write_text(updated, encoding="utf-8")
+            print(f"[mk] cleaned {mk.name}: removed IAR/Keil references")
+            fixed += 1
+
     print(f"Cleanup complete: {fixed} issue(s) fixed")
     return 0
 
@@ -63,6 +85,6 @@ def main(project_dir: str) -> int:
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python cleanup.py <project_dir>")
-        print("Fixes: duplicate .c between root and subdirs, generated files in root, ticlang/, src/ leftovers")
+        print("Fixes: duplicate .c between root and subdirs, generated files in root, ticlang/, src/ leftovers, IAR/Keil makefile references")
         sys.exit(1)
     sys.exit(main(sys.argv[1]))

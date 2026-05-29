@@ -13,6 +13,8 @@ def main(project_dir: str, config_path: str | None = None) -> None:
         config_path or str(Path(__file__).resolve().parents[1] / "config.json")
     )
 
+    chip = config.get("chip", "MSPM0G3507")
+
     proj = Path(project_dir).resolve()
     out_files = list(proj.glob("ticlang/*.out"))
     if not out_files:
@@ -25,8 +27,8 @@ def main(project_dir: str, config_path: str | None = None) -> None:
         print("Warning: no .ccxml found, creating default.")
         target_dir = proj / "targetConfigs"
         target_dir.mkdir(exist_ok=True)
-        ccxml_path = target_dir / "MSPM0G3519.ccxml"
-        _write_default_ccxml(ccxml_path, config.get("probe", "XDS110"))
+        ccxml_path = target_dir / f"{chip}.ccxml"
+        _write_default_ccxml(ccxml_path, config.get("probe", "XDS110"), chip)
     else:
         ccxml_path = ccxml[0]
 
@@ -39,7 +41,6 @@ def main(project_dir: str, config_path: str | None = None) -> None:
             print(f"[cache] removed: {f}")
 
     dslite = config.get("dslite", "DSLite.exe")
-    # DSLite 20.x syntax: `DSLite flash -c <ccxml> <firmware>`
     cmd = [dslite, "flash", "-c", str(ccxml_path), str(out_file)]
 
     print(f"Flashing: {' '.join(cmd)}")
@@ -54,7 +55,7 @@ def _load_config(config_path: str) -> dict:
         return json.load(f)
 
 
-def _write_default_ccxml(path: Path, probe: str) -> None:
+def _write_default_ccxml(path: Path, probe: str, chip: str) -> None:
     if probe == "XDS110":
         conn_name = "Texas Instruments XDS110 USB Debug Probe"
         conn_xml = "connections/TIXDS110_Connection.xml"
@@ -82,9 +83,9 @@ def _write_default_ccxml(path: Path, probe: str) -> None:
                 <choice Name="SWD Mode - Aux COM port is target TDO pin" value="nothing"/>
             </property>
             <platform XML_version="1.2" id="platform_0">
-                <instance XML_version="1.2" desc="MSPM0G3519"
-                          href="devices/MSPM0G3519.xml" id="MSPM0G3519"
-                          xml="MSPM0G3519.xml" xmlpath="devices"/>
+                <instance XML_version="1.2" desc="{chip}"
+                          href="devices/{chip}.xml" id="{chip}"
+                          xml="{chip}.xml" xmlpath="devices"/>
             </platform>
         </connection>
     </configuration>

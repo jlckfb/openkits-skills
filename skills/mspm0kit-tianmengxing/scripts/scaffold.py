@@ -7,6 +7,12 @@ import re
 import shutil
 from pathlib import Path
 
+# Board-specific constants
+CHIP = "MSPM0G3507"
+CHIP_MACRO = "__MSPM0G3507__"
+STARTUP_PATTERN = "mspm0g350x"
+LP_BOARD = "LP_MSPM0G3507"
+
 
 def _load_config(config_path: str) -> dict:
     try:
@@ -16,29 +22,68 @@ def _load_config(config_path: str) -> dict:
         return {}
 
 
-def _copy_and_rename(src: Path, dst: Path, old_name: str, new_name: str) -> None:
-    """Copy file, replacing the old project name stem in filename and content."""
-    new_stem = src.stem.replace(old_name, new_name)
-    dst_file = dst / f"{new_stem}{src.suffix}"
-    dst.mkdir(parents=True, exist_ok=True)
-    content = src.read_text(encoding="utf-8", errors="replace")
-    content = content.replace(old_name, new_name)
-    dst_file.write_text(content, encoding="utf-8")
+def _clean_project(out: Path) -> None:
+    """Remove IAR/Keil startup files and fix up project for ticlang-only build."""
+
+    # Remove IAR/Keil startup directories and files
+    for p in out.rglob("*"):
+        if any(k in str(p).lower() for k in ["iar", "keil", "uvision"]):
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            elif p.is_file():
+                p.unlink()
+
+    # Remove IAR/Keil startup .c/.s files at any level (both family and specific patterns)
+    for pattern in ["*iar*.c", "*iar*.s", "*keil*.c", "*keil*.s",
+                    f"startup_{STARTUP_PATTERN}_iar*", f"startup_{STARTUP_PATTERN}_keil*",
+                    "startup_mspm0g350x_iar*", "startup_mspm0g350x_keil*",
+                    "startup_mspm0g351x_iar*", "startup_mspm0g351x_keil*"]:
+        for f in out.rglob(pattern):
+            f.unlink()
+
+    # Fix makefiles: remove IAR/Keil OBJECTS and rules, fix chip macro
+    for mk in list(out.rglob("*.mak")) + list(out.rglob("makefile*")) + list(out.rglob("*.mk")):
+        content = mk.read_text(encoding="utf-8", errors="replace")
+        updated = content
+
+        # Remove IAR/Keil startup .o from OBJECTS (any variant)
+        updated = re.sub(rf'startup_{STARTUP_PATTERN}_iar\.o\s*', '', updated)
+        updated = re.sub(rf'startup_{STARTUP_PATTERN}_keil\.o\s*', '', updated)
+        updated = re.sub(r'startup_mspm0g350x_iar\.o\s*', '', updated)
+        updated = re.sub(r'startup_mspm0g350x_keil\.o\s*', '', updated)
+        updated = re.sub(r'startup_mspm0g351x_iar\.o\s*', '', updated)
+        updated = re.sub(r'startup_mspm0g351x_keil\.o\s*', '', updated)
+        # Remove IAR/Keil build rules (lines referencing ../iar/ ../keil/)
+        updated = re.sub(r'^.*\.\./iar/.*$\n?', '', updated, flags=re.MULTILINE)
+        updated = re.sub(r'^.*\.\./keil/.*$\n?', '', updated, flags=re.MULTILINE)
+        # Remove -I../iar and -I../keil include paths
+        updated = re.sub(r'-I\.\./iar\s*', '', updated)
+        updated = re.sub(r'-I\.\./keil\s*', '', updated)
+        # Fix chip macro
+        updated = re.sub(r'-D__MSPM0G3519__', f'-D{CHIP_MACRO}', updated)
+        updated = re.sub(r'-D__MSPM0G3507__', f'-D{CHIP_MACRO}', updated)
+        # Fix ticlang startup path: ../startup_xxx.c → ticlang/startup_xxx.c
+        updated = re.sub(rf'\.\./startup_{STARTUP_PATTERN}_ticlang\.c',
+                         f'ticlang/startup_{STARTUP_PATTERN}_ticlang.c', updated)
+
+        if updated != content:
+            mk.write_text(updated, encoding="utf-8")
+            print(f"[makefile] cleaned {mk.relative_to(out)}")
 
 
 def _write_projectspec(out: Path, project_name: str, example_name: str) -> None:
     """Generate minimal .projectspec for skill-bundled examples."""
     src_files = ' '.join(
         f'<file path="{f.relative_to(out)}" openOnCreation="false" excludeFromBuild="false" action="copy"/>'
-        for f in sorted(out.rglob("*.c")) if "ticlang" not in str(f)
+        for f in sorted(out.rglob("*.c")) if "ticlang" not in str(f) and "iar" not in str(f).lower() and "keil" not in str(f).lower()
     )
     spec = f'''<?xml version="1.0" encoding="UTF-8"?>
 <projectSpec>
-    <applicability><when><context deviceFamily="ARM" deviceId="MSPM0G3507"/></when></applicability>
+    <applicability><when><context deviceFamily="ARM" deviceId="{CHIP}"/></when></applicability>
     <project
         title="{project_name}" name="{project_name}"
         configurations="Debug" toolChain="TICLANG"
-        connection="TIXDS110_Connection.xml" device="MSPM0G3507"
+        connection="TIXDS110_Connection.xml" device="{CHIP}"
         ignoreDefaultDeviceSettings="true" ignoreDefaultCCSSettings="true"
         products="MSPM0-SDK;sysconfig"
         compilerBuildOptions="
@@ -56,7 +101,7 @@ def _write_projectspec(out: Path, project_name: str, example_name: str) -> None:
         sysConfigBuildOptions="
             --output . --product ${{COM_TI_MSPM0_SDK_INSTALL_DIR}}/.metadata/product.json
             --compiler ticlang"
-        description="{example_name} for MSPM0G3507">
+        description="{example_name} for {CHIP}">
         <property name="buildProfile" value="release"/>
         <property name="isHybrid" value="true"/>
         <file path="{project_name}.syscfg" openOnCreation="true" excludeFromBuild="false" action="copy"/>
@@ -97,9 +142,7 @@ def main(
     out = Path(output_dir or Path.cwd()) / project_name
     out.mkdir(parents=True, exist_ok=True)
 
-    is_skill_example = (skill_examples_dir / sdk_example).is_dir()
-
-    # 1. Copy ALL files preserving directory structure (skip Debug/ticlang)
+    # 1. Copy ALL files preserving directory structure (skip Debug/ticlang/targetConfigs)
     skip_dirs = {"Debug", "ticlang", "targetConfigs"}
     for item in source_dir.rglob("*"):
         if item.is_dir() or any(s in item.parts for s in skip_dirs):
@@ -131,15 +174,20 @@ def main(
         else:
             shutil.copy2(item, dst_file)
 
-    # 2. Generate .projectspec
+    # 2. Clean up IAR/Keil files and fix makefiles
+    _clean_project(out)
+
+    # 3. Generate .projectspec
     pspec_files = list((source_dir / "ticlang").glob("*.projectspec")) if (source_dir / "ticlang").is_dir() else []
     if pspec_files:
         for ps in pspec_files:
             content = ps.read_text(encoding="utf-8", errors="replace")
             content = content.replace(
-                f"{sdk_example}_LP_MSPM0G3507_nortos_ticlang", project_name
+                f"{sdk_example}_{LP_BOARD}_nortos_ticlang", project_name
             )
             content = content.replace(sdk_example, project_name)
+            # Fix chip macro in any preprocessor defines
+            content = re.sub(r'-D__MSPM0G3519__', f'-D{CHIP_MACRO}', content)
             content = re.sub(
                 r'path="\.\./.*?\.c"', f'path="{project_name}.c"', content
             )
@@ -153,7 +201,7 @@ def main(
                 r'path="\.\./README\.html"', 'path="README.html"', content
             )
             content = re.sub(
-                r'name=".*?_LP_MSPM0G3507_nortos_ticlang"',
+                r'name=".*?_{LP_BOARD}_nortos_ticlang"',
                 f'name="{project_name}"',
                 content,
             )
