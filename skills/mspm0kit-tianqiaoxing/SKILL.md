@@ -1,5 +1,5 @@
 ---
-name: mspm0kit
+name: mspm0kit-tianqiaoxing
 description: One-sentence CCS project generator for the Tianqiaoxing MSPM0G3519 custom board. Create full CCS projects from SDK examples with automatic pin/package adaptation, then build and flash. Use when the user wants to start a new MSPM0 firmware project on this specific board, or needs pin availability information for the Tianqiaoxing G3519.
 requires: [mspm0-ccs]
 ---

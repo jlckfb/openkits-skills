@@ -10,10 +10,10 @@ LCSC development board AI agent skill collection. Teach AI coding agents (Claude
 
 ```bash
 # Install a single board skill
-npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code
 
 # Install all skills for a platform
-npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing -a claude-code
 
 # Target specific agents
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae

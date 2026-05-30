@@ -12,19 +12,26 @@
 
 ```bash
 # 安装单个板卡 skill
-npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code
 
 # 安装整个平台的 skill
-npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
+npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing -a claude-code
 
-# 指定目标 agent
+# 安装到多个 agent
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae
 ```
 
 **Gitee 镜像（国内）：**
 
 ```bash
-npx skills add https://gitee.com/lcsc/openkits-skills -s mspm0kit-tianqiaoxing
+# 安装天巧星（注意：Gitee 地址需加 .git 后缀，-a 指定目标 agent）
+npx skills add https://gitee.com/lcsc/openkits-skills.git -s mspm0kit-tianqiaoxing -a claude-code
+
+# 安装天猛星
+npx skills add https://gitee.com/lcsc/openkits-skills.git -s mspm0kit-tianmengxing -a claude-code
+
+# 安装 MSPM0 通用平台 skill
+npx skills add https://gitee.com/lcsc/openkits-skills.git -s mspm0-ccs -a claude-code
 ```
 
 ### 手动安装
