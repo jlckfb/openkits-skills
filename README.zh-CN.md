@@ -8,6 +8,8 @@
 
 ### 推荐：npx skills（支持 28+ agent）
 
+**GitHub（国际）：**
+
 ```bash
 # 安装单个板卡 skill
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing
@@ -17,6 +19,12 @@ npx skills add lckfb/openkits-skills -s mspm0-ccs mspm0kit-tianqiaoxing
 
 # 指定目标 agent
 npx skills add lckfb/openkits-skills -s mspm0kit-tianqiaoxing -a claude-code codex trae
+```
+
+**Gitee 镜像（国内）：**
+
+```bash
+npx skills add https://gitee.com/lcsc/openkits-skills -s mspm0kit-tianqiaoxing
 ```
 
 ### 手动安装
