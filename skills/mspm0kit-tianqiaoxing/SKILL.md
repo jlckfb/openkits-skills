@@ -120,6 +120,26 @@ All projects must follow the HAL → BSP → Middleware → App 4-layer structur
 - Only when a script fails due to missing/invalid paths, follow the Path Configuration flow above.
 - After paths are configured, access CCS/SDK files without re-prompting each time.
 
+### R4: Generated Macro Verification (CRITICAL)
+
+SDK 2.04.00.06 + SysConfig 1.27.0 的 LQFP-64(PM) 封装存在引脚映射 bug。**每次 SysConfig 生成后必须验证宏**：
+
+1. After SysConfig runs, `grep` the generated `ti_msp_dl_config.h` for all `_PORT` and `_PIN` macros.
+2. Verify the port is correct (e.g. `GPIOB` for PB22, not `GPIOA`).
+3. If macros are wrong, fall back to direct register values:
+   ```c
+   DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);  // use direct values, not generated macros
+   ```
+4. **Always** pair `DL_GPIO_initDigitalOutput()` with `DL_GPIO_enableOutput()` — the first only configures IOMUX, not output direction.
+5. Upgrade to SDK >= 2.05.01.01 resolves the macro bug.
+
+### R5: Pin Table is Authoritative
+
+The pin occupation table in this SKILL.md is the single source of truth for pin availability. When choosing pins:
+- Check the occupation table FIRST before any peripheral assignment.
+- Yellow-background cells in the official 外设引脚功能标注表.xlsx indicate pins that MUST NOT be used.
+- If a user requests a pin listed as occupied or yellow, warn them explicitly before proceeding.
+
 
 ## Pin Table — Tianqiaoxing MSPM0G3519
 
@@ -168,17 +188,25 @@ All other pins not listed above. The board uses LQFP-64(PM) package.
 
 The skill stores toolchain paths in `config.json`.
 
-**Do NOT pre-emptively ask the user for paths or permission.** Follow this order:
+### CRITICAL: Strict Order — Do NOT Skip Steps
 
-1. **Try first.** Run the script (scaffold/build/flash) without asking for paths.
-2. **If it fails** because `config.json` is missing or paths are invalid, ask the user to provide the paths:
+**NEVER search for paths before asking the user.** AI-initiated auto-search is forbidden until step 5.
+
+1. **Try first.** Run the script (scaffold/build/flash) without asking for paths or searching.
+2. **If it fails** because `config.json` is missing or paths are invalid — **only ask the user**, do NOT search:
    - "请提供 CCS 安装目录（例如 `C:/ti/ccstheia140`）："
    - "请提供 MSPM0 SDK 示例目录（例如 `C:/ti/mspm0_sdk_2_10_00_04/examples/nortos`）："
-3. **Update `config.json`** via `python scripts/setup.py` or by writing directly.
-4. **If the user-provided path does not exist or lacks expected files** (e.g. no `LP_MSPM0G3519/` subdirectory, no `.syscfg` files), do NOT silently accept it. Say:
-   - "在 `<user_path>` 中没有发现 MSPM0G3519 的 SDK 示例（预期存在 `LP_MSPM0G3519/` 目录）。是否需要我自动搜索？"
-5. **If the user says yes**, use `scripts/setup.py` or search common install locations (e.g. `C:/ti/`, `C:/Program Files/Texas Instruments/`) for the correct path.
-6. **Retry** the failed script after paths are fixed.
+   - Wait for user response. Do NOT run `find`, `ls`, or any search command at this step.
+3. **Validate the user's input.** Use `Path(...).exists()` to check. No searching.
+4. **If user path does not exist or lacks expected files** (e.g. no `LP_MSPM0G3519/` subdirectory), tell the user:
+   - "默认路径未找到（在 `<user_path>` 中未发现 SDK 示例目录）。是否需要我扩大搜索范围？"
+   - Wait for user consent. Do NOT search until the user says yes.
+5. **Only if user says yes**, search common install locations across C/D/E drives. Use BROAD patterns (NOT just `ccstheia*`):
+   - CCS: search for `TI/CCS/ccs/`, `ccs/theia/`, `ti/ccs/`, `Texas Instruments/`
+   - SDK: search for `mspm0_sdk*`, `MSPM0_SDK*`, `mspm0-sdk*`
+   - Typical found locations: `D:/TI/CCS/ccs`, `D:/TI/CCS/mspm0_sdk_2_05_01_00`, `C:/ti/ccstheia140`
+6. **After paths are resolved**, update `config.json` via `python scripts/setup.py` or by writing directly.
+7. **Retry** the failed script.
 
 ## Tools
 

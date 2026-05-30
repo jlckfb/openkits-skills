@@ -43,9 +43,15 @@ def main(project_dir: str) -> int:
             print(f"[gen] removed root/{name}")
             fixed += 1
 
-    # 3. Remove ticlang/ directory (conflicts with CCS Debug/)
+    # 3. Save startup files from ticlang/ before removing the directory
     ticlang = proj / "ticlang"
     if ticlang.is_dir():
+        for sf in ticlang.glob("startup_*.c"):
+            dest = proj / sf.name
+            if not dest.exists():
+                shutil.copy2(sf, dest)
+                print(f"[startup] copied {sf.name} to root")
+                fixed += 1
         shutil.rmtree(ticlang)
         print("[dir] removed ticlang/")
         fixed += 1

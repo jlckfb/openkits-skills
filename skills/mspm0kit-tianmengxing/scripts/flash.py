@@ -59,9 +59,15 @@ def _write_default_ccxml(path: Path, probe: str, chip: str) -> None:
     if probe == "XDS110":
         conn_name = "Texas Instruments XDS110 USB Debug Probe"
         conn_xml = "connections/TIXDS110_Connection.xml"
+        driver_dap = "tixds510cs_dap.xml"
+        driver_cortex = "tixds510cortexM0.xml"
+        driver_sec = "tixds510sec_ap.xml"
     else:
         conn_name = "Segger J-Link Emulator"
-        conn_xml = "connections/SEGGER_JLink_Emulator_Connection.xml"
+        conn_xml = "connections/segger_j-link_connection.xml"
+        driver_dap = "jlinkcs_dap.xml"
+        driver_cortex = "jlinkcortexm0p.xml"
+        driver_sec = "jlinksec_ap.xml"
 
     path.write_text(f"""\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -71,9 +77,9 @@ def _write_default_ccxml(path: Path, probe: str, chip: str) -> None:
                   href="{conn_xml}" id="{conn_name}"
                   xml="{conn_xml.rsplit('/', 1)[-1]}" xmlpath="connections"/>
         <connection XML_version="1.2" id="{conn_name}">
-            <instance XML_version="1.2" href="drivers/tixds510cs_dap.xml" id="drivers" xml="tixds510cs_dap.xml" xmlpath="drivers"/>
-            <instance XML_version="1.2" href="drivers/tixds510cortexM0.xml" id="drivers" xml="tixds510cortexM0.xml" xmlpath="drivers"/>
-            <instance XML_version="1.2" href="drivers/tixds510sec_ap.xml" id="drivers" xml="tixds510sec_ap.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/{driver_dap}" id="drivers" xml="{driver_dap}" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/{driver_cortex}" id="drivers" xml="{driver_cortex}" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/{driver_sec}" id="drivers" xml="{driver_sec}" xmlpath="drivers"/>
             <property Type="choicelist" Value="1" id="The JTAG TCLK Frequency (MHz)">
                 <choice Name="Fixed with user specified value" value="SPECIFIC">
                     <property Type="stringfield" Value="1MHz" id="-- Enter a value from 100.0kHz to 2.5MHz"/>

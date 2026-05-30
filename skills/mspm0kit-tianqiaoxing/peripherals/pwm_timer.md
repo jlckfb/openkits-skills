@@ -123,6 +123,30 @@ PWM1.PWM_CHANNEL_0.initVal = "HIGH";
 PWM1.PWM_CHANNEL_0.shadowUpdateMode = "ZERO_EVT";
 ```
 
+## SysConfig PWM Module Crash (SDK 2.04 / SysConfig 1.27)
+
+SDK 2.04.00.06 + SysConfig 1.27.0 下，PWM 模块使用单通道 `ccIndex=[1]` 时 `Common.js` 可能崩溃。如遇崩溃，改用代码手动初始化 TIMG PWM：
+
+```c
+DL_TimerG_reset(TIMG6);
+DL_TimerG_enablePower(TIMG6);
+delay_cycles(160);
+DL_GPIO_initPeripheralOutputFunction(IOMUX_PINCM58, IOMUX_PINCM58_PF_TIMG6_CCP1);
+DL_GPIO_enableOutput(GPIOB, DL_GPIO_PIN_27);
+DL_TimerG_setClockConfig(TIMG6, &(DL_TimerG_ClockConfig){
+    .clockSel = DL_TIMER_CLOCK_BUSCLK, .divideRatio = DL_TIMER_CLOCK_DIVIDE_1, .prescale = 0U});
+DL_TimerG_initPWMMode(TIMG6, &(DL_TimerG_PWMConfig){
+    .pwmMode = DL_TIMER_PWM_MODE_EDGE_ALIGN, .period = 16000,
+    .isTimerWithFourCC = false, .startTimer = DL_TIMER_STOP});
+DL_TimerG_setCounterControl(TIMG6, DL_TIMER_CZC_CCCTL1_ZCOND,
+    DL_TIMER_CAC_CCCTL1_ACOND, DL_TIMER_CLC_CCCTL1_LCOND);
+DL_TimerG_setCaptureCompareValue(TIMG6, 0, DL_TIMER_CC_1_INDEX);
+DL_TimerG_enableClock(TIMG6);
+DL_TimerG_setCCPDirection(TIMG6, DL_TIMER_CC1_OUTPUT);
+```
+
+升级到 SDK >= 2.05.01.01 可避免此问题。
+
 ## SysConfig Naming Rules
 
 - All `$name` values must be **globally unique** across all instances and pins.
