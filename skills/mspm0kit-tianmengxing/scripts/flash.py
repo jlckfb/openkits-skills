@@ -41,11 +41,40 @@ def main(project_dir: str, config_path: str | None = None) -> None:
         _flash_dslite(out_file, proj, chip, config)
 
 
+def _find_jlink() -> str | None:
+    """Search common SEGGER install locations for JLink.exe."""
+    import glob
+    patterns = [
+        r"C:\Program Files\SEGGER\JLink*\JLink.exe",
+        r"C:\Program Files (x86)\SEGGER\JLink*\JLink.exe",
+        r"D:\Program Files\SEGGER\JLink*\JLink.exe",
+    ]
+    for pattern in patterns:
+        matches = sorted(glob.glob(pattern), reverse=True)  # newest version first
+        if matches:
+            return matches[0]
+    return None
+
+
 def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
     """Convert .out to .hex and flash with JLink Commander."""
     compiler_bin = Path(config.get("compiler", "")) / "bin"
     objcopy = compiler_bin / "tiarmobjcopy.exe"
-    jlink = config.get("jlink_path", "JLink.exe")
+    jlink = config.get("jlink_path", "")
+
+    # Auto-search if not configured or not found
+    if not jlink or not Path(jlink).exists():
+        found = _find_jlink()
+        if found:
+            print(f"[flash] JLink.exe 自动找到：{found}")
+            jlink = found
+        else:
+            print(
+                "Error: JLink.exe 未找到。\n"
+                "请在 config.json 中添加 jlink_path 字段，例如：\n"
+                '  "jlink_path": "C:/Program Files/SEGGER/JLink_V798/JLink.exe"'
+            )
+            sys.exit(1)
 
     if not objcopy.exists():
         print(f"Error: tiarmobjcopy 未找到：{objcopy}\n请检查 config.json 的 compiler 路径。")

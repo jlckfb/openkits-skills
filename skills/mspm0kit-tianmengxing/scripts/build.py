@@ -178,12 +178,10 @@ def main(
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
 
-    # After SysConfig: clean generated files it put in root (they belong in Debug/)
-    for name in ["ti_msp_dl_config.c", "ti_msp_dl_config.h"]:
-        gen_file = proj / name
-        if gen_file.exists():
-            gen_file.unlink()
-            print(f"[build] removed root/{name} (SysConfig output, Debug/ owns these)")
+    # NOTE: Do NOT delete ti_msp_dl_config.c/h here.
+    # CLI build (ticlang/makefile) uses -I.. and compiles ../ti_msp_dl_config.c directly.
+    # These files must stay in project root for the makefile to find them.
+    # cleanup.py removes stale copies BEFORE SysConfig runs; build.py must not remove fresh ones.
 
     # After SysConfig: copy startup file from ticlang/ to project root
     # (SysConfig CLI outputs to --output dir, but makefile expects it at project root)

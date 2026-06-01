@@ -38,6 +38,21 @@ def _safe_prompt(label: str, default: str) -> str:
     return value if value else default
 
 
+def _find_jlink() -> str:
+    """Search common SEGGER install locations for JLink.exe."""
+    import glob
+    patterns = [
+        r"C:\Program Files\SEGGER\JLink*\JLink.exe",
+        r"C:\Program Files (x86)\SEGGER\JLink*\JLink.exe",
+        r"D:\Program Files\SEGGER\JLink*\JLink.exe",
+    ]
+    for pattern in patterns:
+        matches = sorted(glob.glob(pattern), reverse=True)
+        if matches:
+            return matches[0]
+    return DEFAULTS["jlink_path"]
+
+
 def interactive_config() -> dict:
     print("mspm0kit-tianmengxing Skill Setup")
     print("-" * 34)
@@ -52,7 +67,7 @@ def interactive_config() -> dict:
         "gmake": DEFAULTS["gmake"],
         "compiler": DEFAULTS["compiler"],
         "sdk_examples": str(Path(sdk_root) / "examples/nortos/LP_MSPM0G3507/driverlib"),
-        "jlink_path": DEFAULTS["jlink_path"],
+        "jlink_path": _find_jlink(),
         "probe": probe,
         "chip": DEFAULTS["chip"],
     }
@@ -94,7 +109,7 @@ if __name__ == "__main__":
             "compiler": DEFAULTS["compiler"],
             "sdk_examples": str(Path(args.sdk_root or DEFAULTS["sdk_root"])
                 / "examples/nortos/LP_MSPM0G3507/driverlib"),
-            "jlink_path": DEFAULTS["jlink_path"],
+            "jlink_path": _find_jlink(),
             "probe": args.probe or DEFAULTS["probe"],
             "chip": DEFAULTS["chip"],
         }
@@ -112,7 +127,7 @@ if __name__ == "__main__":
                 "compiler": DEFAULTS["compiler"],
                 "sdk_examples": str(Path(args.sdk_root or DEFAULTS["sdk_root"])
                     / "examples/nortos/LP_MSPM0G3507/driverlib"),
-                "jlink_path": DEFAULTS["jlink_path"],
+                "jlink_path": _find_jlink(),
                 "probe": args.probe or DEFAULTS["probe"],
                 "chip": DEFAULTS["chip"],
             }
