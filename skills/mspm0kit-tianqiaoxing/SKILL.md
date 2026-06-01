@@ -65,9 +65,9 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 1. Run build:
    ```
-   python scripts/build.py <project_dir>
+   python scripts/build.py <project_dir> --yes
    ```
-   This asks for confirmation before each tool invocation (SysConfig CLI, gmake).
+   `--yes` 跳过交互确认。非交互环境下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
 3. If build succeeds: report the `.out` file path and provide the flash command.
 4. On first build failure, read `ti_msp_dl_config.h` to confirm generated macro names — never guess them.

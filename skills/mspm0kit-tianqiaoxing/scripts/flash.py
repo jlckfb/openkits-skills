@@ -103,5 +103,6 @@ if __name__ == "__main__":
     import argparse
     p = argparse.ArgumentParser(description="Flash MSPM0 firmware")
     p.add_argument("project_dir", help="Path to project directory")
+    p.add_argument("-y", "--yes", action="store_true", help="Skip interactive prompts")
     args = p.parse_args()
     main(args.project_dir)

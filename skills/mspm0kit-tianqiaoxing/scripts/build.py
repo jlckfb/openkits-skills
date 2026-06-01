@@ -47,11 +47,15 @@ def _generate_makefile(ticlang_dir: Path, proj: Path, config: dict) -> None:
 
     c_files = [str(f).replace("\\", "/") for f in c_files_rel]
 
-    # Find startup file
+    # Find startup file — copy to project ROOT, not ticlang/
+    # (makefile references ../startup_xxx.c which is root-relative)
     startup_src = sdk_root / "source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g351x_ticlang.c"
-    startup_dst = ticlang_dir / "startup_mspm0g351x_ticlang.c"
-    if startup_src.exists():
+    startup_dst = proj / "startup_mspm0g351x_ticlang.c"
+    if startup_src.exists() and not startup_dst.exists():
         shutil.copy2(startup_src, startup_dst)
+    # Makefile rule references ../startup_xxx.c (root level)
+    ticlang_dir.mkdir(exist_ok=True)
+    if startup_dst.exists():
         c_files.append("startup_mspm0g351x_ticlang.c")
 
     # Copy device_linker.cmd
@@ -141,6 +145,13 @@ def main(
     result = subprocess.run(sysconfig_cmd, capture_output=True, text=True, cwd=str(proj))
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
+
+    # After SysConfig: clean generated files it put in root (they belong in Debug/)
+    for name in ["ti_msp_dl_config.c", "ti_msp_dl_config.h"]:
+        gen_file = proj / name
+        if gen_file.exists():
+            gen_file.unlink()
+            print(f"[build] removed root/{name} (SysConfig output, Debug/ owns these)")
 
     # After SysConfig: copy startup file from ticlang/ to project root
     # (SysConfig CLI outputs to --output dir, but makefile expects it at project root)

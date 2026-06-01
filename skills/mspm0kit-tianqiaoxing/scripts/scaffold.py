@@ -236,3 +236,5 @@ if __name__ == "__main__":
         output_dir=args.output,
     )
     print(f"Project created: {result}")
+    print("\n⚠️  SDK 例程可能包含多余的默认引脚（如 PB26/PB27/PB14 在天巧星上已被占用）。")
+    print("   请编辑 .syscfg 检查引脚分配，确保不会与板载外设冲突。")
