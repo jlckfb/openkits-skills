@@ -67,7 +67,13 @@ def interactive_config() -> dict:
         "gmake": DEFAULTS["gmake"],
         "compiler": DEFAULTS["compiler"],
         "sdk_examples": str(Path(sdk_root) / "examples/nortos/LP_MSPM0G3519/driverlib"),
-        "jlink_path": _find_jlink(),(config: dict) -> Path:
+        "jlink_path": _find_jlink(),
+        "probe": probe,
+        "chip": DEFAULTS["chip"],
+    }
+
+
+def write_config(config: dict) -> Path:
     config_path = CONFIG_DIR / "config.json"
     if config_path.exists():
         try:

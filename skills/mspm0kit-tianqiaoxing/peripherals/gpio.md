@@ -81,9 +81,12 @@ PB0–PB5, PB10–PB16, PB19, PB20, PB24, PB25, PB28
 
 ## SysConfig Enum Values
 
+> **CRITICAL**: `initialValue` 的有效值是 `"CLEARED"`，不是 `"CLEAR"`。写错会报：
+> `Error: cannot set 'initialValue' to 'CLEAR': No option named CLEAR defined`
+
 | Field | Valid Values | NOT Valid |
 |-------|-------------|-----------|
-| `initialValue` | `"SET"` (HIGH), `"CLEARED"` (LOW) | `"CLEAR"`, `"LOW"`, `"HIGH"`, `"1"`, `"0"` |
+| `initialValue` | `"SET"` (HIGH), **`"CLEARED"`** (LOW) | ~~`"CLEAR"`~~, `"LOW"`, `"HIGH"`, `"1"`, `"0"` |
 | `direction` | `"OUTPUT"`, `"INPUT"` | — |
 | `internalResistor` | `"PULL_UP"`, `"PULL_DOWN"`, `"NONE"` | — |
 | `ioStructure` | `"OD"` (open-drain), omitted for push-pull | — |
