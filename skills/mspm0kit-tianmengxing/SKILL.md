@@ -62,12 +62,22 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 1. Run build:
    ```
-   python scripts/build.py <project_dir>
+   python scripts/build.py <project_dir> --yes
    ```
-   This asks for confirmation before each tool invocation (SysConfig CLI, gmake).
+   `--yes` 跳过交互确认。非交互环境（AI agent 调用）下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
 3. If build succeeds: report the `.out` file path and provide the flash command.
 4. On first build failure, read `ti_msp_dl_config.h` to confirm generated macro names — never guess them.
+
+### Flash
+
+```
+python scripts/flash.py <project_dir>
+```
+
+flash.py 根据 config.json 的 `probe` 字段自动选择烧录方式：
+- `probe = "XDS110"`：用 DSLite 烧录
+- `probe = "JLINK"`：用 tiarmobjcopy 转 hex + JLink.exe 烧录（DSLite 对 J-Link 支持不稳定，会报 block verification error）
 
 ## Core Rules
 
@@ -179,6 +189,20 @@ The skill stores toolchain paths in `config.json`.
 | `python scripts/flash.py <project_dir>` | DSLite flash |
 | `python scripts/serial_console.py -p <port> -b <baud>` | Serial monitor |
 | `python scripts/cleanup.py <project_dir>` | **MANDATORY before build**: fix .c in subdirs, remove generated files from root |
+
+## Clock Configuration
+
+SYSCTL 时钟属性名随 SDK 版本变化（例如 `HFXT_Range` 在 SDK 2.05 中不存在）。如不确定属性名，先用**安全默认配置**（系统默认时钟，无需 HFXT）：
+
+```js
+const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL", {}, false);
+SYSCTL.forceDefaultClkConfig = true;
+SYSCTL.clockTreeEn           = true;
+```
+
+这会用内部时钟（约 32 MHz），无需外部晶振，适合 GPIO/UART/定时器等多数场景。
+
+**需要 80 MHz HFXT 时**：属性名因 SDK 版本而异，必须参考当前 SDK 的示例 `.syscfg`（如 `LP_MSPM0G3507/.../*.syscfg`）确认确切写法，不要凭记忆填属性名。
 
 ## SDK Example Index
 

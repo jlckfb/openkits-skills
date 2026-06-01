@@ -16,6 +16,7 @@ DEFAULTS = {
     "gmake": r"D:\TI\CCS\ccs\utils\bin\gmake.exe",
     "compiler": r"D:\TI\CCS\ccs\tools\compiler\ti-cgt-armllvm_4.0.3.LTS",
     "sdk_examples": r"D:\TI\CCS\mspm0_sdk_2_05_01_00\examples\nortos\LP_MSPM0G3519\driverlib",
+    "jlink_path": r"C:\Program Files\SEGGER\JLink\JLink.exe",
     "probe": "XDS110",
     "chip": "MSPM0G3519",
 }
@@ -51,6 +52,7 @@ def interactive_config() -> dict:
         "gmake": DEFAULTS["gmake"],
         "compiler": DEFAULTS["compiler"],
         "sdk_examples": str(Path(sdk_root) / "examples/nortos/LP_MSPM0G3519/driverlib"),
+        "jlink_path": DEFAULTS["jlink_path"],
         "probe": probe,
         "chip": DEFAULTS["chip"],
     }
@@ -92,6 +94,7 @@ if __name__ == "__main__":
             "compiler": DEFAULTS["compiler"],
             "sdk_examples": str(Path(args.sdk_root or DEFAULTS["sdk_root"])
                 / "examples/nortos/LP_MSPM0G3519/driverlib"),
+            "jlink_path": DEFAULTS["jlink_path"],
             "probe": args.probe or DEFAULTS["probe"],
             "chip": DEFAULTS["chip"],
         }
@@ -109,6 +112,7 @@ if __name__ == "__main__":
                 "compiler": DEFAULTS["compiler"],
                 "sdk_examples": str(Path(args.sdk_root or DEFAULTS["sdk_root"])
                     / "examples/nortos/LP_MSPM0G3519/driverlib"),
+                "jlink_path": DEFAULTS["jlink_path"],
                 "probe": args.probe or DEFAULTS["probe"],
                 "chip": DEFAULTS["chip"],
             }

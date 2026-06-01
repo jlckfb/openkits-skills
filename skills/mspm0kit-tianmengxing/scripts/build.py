@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Build a CCS project: SysConfig CLI -> gmake (auto-generates makefile if needed)."""
+"""Build a CCS project: SysConfig CLI -> gmake (auto-generates makefile if needed).
+
+Chip-adaptive: all chip-specific values (startup file, macro, linker cmd, LP board)
+are derived from config.json's `chip` field, so a single build.py works for any
+MSPM0 board (G3507, G3519, L1306, ...).
+"""
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,10 +22,29 @@ def _load_config(config_path: str) -> dict:
         return {}
 
 
+def _chip_info(config: dict) -> dict:
+    """Derive chip-specific build parameters from config['chip'].
+
+    e.g. MSPM0G3507 -> startup family mspm0g350x, macro __MSPM0G3507__,
+         linker mspm0g3507.cmd, LP board LP_MSPM0G3507.
+    """
+    chip = config.get("chip", "MSPM0G3519")
+    num = chip[len("MSPM0G"):] if chip.upper().startswith("MSPM0G") else chip[-4:]
+    family = "mspm0g" + num[:3] + "x"  # 3507 -> 350x, 3519 -> 351x
+    return {
+        "chip": chip,
+        "macro": f"__{chip}__",
+        "startup": f"startup_{family}_ticlang.c",
+        "linker_cmd": f"{chip.lower()}.cmd",
+        "lp_board": f"LP_{chip}",
+    }
+
+
 def _generate_makefile(ticlang_dir: Path, proj: Path, config: dict) -> None:
     """Generate a minimal makefile for CLI builds (CCS IDE does this automatically)."""
     sdk_root = Path(config.get("sdk_root", ""))
     compiler_bin = Path(config.get("compiler", "")) / "bin"
+    info = _chip_info(config)
 
     # Collect ALL .c files recursively (excluding Debug, ticlang, targetConfigs)
     skip_dirs = {"Debug", "ticlang", "targetConfigs", ".settings"}
@@ -47,17 +72,18 @@ def _generate_makefile(ticlang_dir: Path, proj: Path, config: dict) -> None:
 
     c_files = [str(f).replace("\\", "/") for f in c_files_rel]
 
-    # Find startup file
-    startup_src = sdk_root / "source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g351x_ticlang.c"
-    startup_dst = ticlang_dir / "startup_mspm0g351x_ticlang.c"
-    if startup_src.exists():
+    # Startup file → copy to project ROOT (makefile references ../startup_xxx.c)
+    startup_src = sdk_root / "source/ti/devices/msp/m0p/startup_system_files/ticlang" / info["startup"]
+    startup_dst = proj / info["startup"]
+    if startup_src.exists() and not startup_dst.exists():
         shutil.copy2(startup_src, startup_dst)
-        c_files.append("startup_mspm0g351x_ticlang.c")
+    if startup_dst.exists():
+        c_files.append(info["startup"])
 
-    # Copy device_linker.cmd
-    linker_src = sdk_root / "examples/nortos/LP_MSPM0G3519/driverlib/gpio_toggle_output/ticlang/device_linker.cmd"
+    # Copy device_linker.cmd (try example dir first, then SDK linker_files)
+    linker_src = sdk_root / "examples/nortos" / info["lp_board"] / "driverlib/gpio_toggle_output/ticlang/device_linker.cmd"
     if not linker_src.exists():
-        linker_src = sdk_root / "source/ti/devices/msp/m0p/linker_files/ticlang/mspm0g3519.cmd"
+        linker_src = sdk_root / "source/ti/devices/msp/m0p/linker_files/ticlang" / info["linker_cmd"]
     linker_dst = ticlang_dir / "device_linker.cmd"
     if linker_src.exists():
         shutil.copy2(linker_src, linker_dst)
@@ -72,7 +98,7 @@ LNK  = "${{TICLANG_ARMCOMPILER}}/tiarmclang"
 CFLAGS = -I.. -I. {inc_flags} \\
     -I"${{MSPM0_SDK_INSTALL_DIR}}/source/third_party/CMSIS/Core/Include" \\
     -I"${{MSPM0_SDK_INSTALL_DIR}}/source" \\
-    -D__MSPM0G3519__ -gdwarf-3 -mcpu=cortex-m0plus -march=thumbv6m \\
+    -D{info["macro"]} -gdwarf-3 -mcpu=cortex-m0plus -march=thumbv6m \\
     -mfloat-abi=soft -mlittle-endian -mthumb -O1
 
 LFLAGS = -Wl,--rom_model -Wl,--warn_sections \\
@@ -108,9 +134,14 @@ def main(
     config_path: str | None = None,
     _interactive: bool = True,
 ) -> tuple[bool, str]:
-    config = _load_config(
-        config_path or str(Path(__file__).resolve().parents[1] / "config.json")
-    )
+    cfg_path = config_path or str(Path(__file__).resolve().parents[1] / "config.json")
+    if not Path(cfg_path).exists():
+        return False, (
+            "config.json 不存在。请先运行 `python scripts/setup.py` 配置工具链路径，"
+            "或手动创建 config.json（参考 SKILL.md 的 Path Configuration 章节）。"
+        )
+    config = _load_config(cfg_path)
+    info = _chip_info(config)
 
     proj = Path(project_dir).resolve()
     syscfg_files = list(proj.glob("*.syscfg"))
@@ -121,6 +152,11 @@ def main(
     sysconfig_cli = config.get("sysconfig_cli", "sysconfig_cli.bat")
     gmake = config.get("gmake", "gmake")
     sdk_root = config.get("sdk_root", "")
+    if not Path(sysconfig_cli).exists():
+        return False, (
+            f"SysConfig CLI 未找到：{sysconfig_cli}\n"
+            "请检查 config.json 中的 sysconfig_cli 路径，或运行 setup.py 重新配置。"
+        )
     product_json = str(Path(sdk_root) / ".metadata" / "product.json")
 
     # Step 1: SysConfig
@@ -142,29 +178,35 @@ def main(
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
 
+    # After SysConfig: clean generated files it put in root (they belong in Debug/)
+    for name in ["ti_msp_dl_config.c", "ti_msp_dl_config.h"]:
+        gen_file = proj / name
+        if gen_file.exists():
+            gen_file.unlink()
+            print(f"[build] removed root/{name} (SysConfig output, Debug/ owns these)")
+
     # After SysConfig: copy startup file from ticlang/ to project root
     # (SysConfig CLI outputs to --output dir, but makefile expects it at project root)
-    startup_name = "startup_mspm0g351x_ticlang.c"
+    startup_name = info["startup"]
     startup_in_ticlang = proj / "ticlang" / startup_name
     startup_in_root = proj / startup_name
     if startup_in_ticlang.exists() and not startup_in_root.exists():
         shutil.copy2(startup_in_ticlang, startup_in_root)
-    # Patch startup file: add missing UART7_IRQHandler (SDK bug in ticlang startup)
-    startup_file = startup_in_root if startup_in_root.exists() else (startup_in_ticlang if startup_in_ticlang.exists() else None)
-    if startup_file and startup_file.exists():
-        content = startup_file.read_text(encoding="utf-8")
-        if "UART7_IRQHandler" not in content:
-            content = content.replace(
-                "void Default_Handler(void)",
-                "void UART7_IRQHandler(void) __attribute__((weak, alias(\"Default_Handler\")));\nvoid Default_Handler(void)")
-            # Find the vector table entry for position 27 (UART7) and replace 0 with handler
-            # The vector table is an array; UART7 is at index 27 (0-indexed after the initial SP)
-            import re
-            vector_pattern = r"(TIMA1_IRQHandler,\s*\n\s*)0,\s*// Index 28"
-            content = re.sub(vector_pattern, r"\1UART7_IRQHandler,  // Index 28 (UART7)", content)
-            if "UART7_IRQHandler" in content:
-                startup_file.write_text(content, encoding="utf-8")
-                print("[patch] added UART7_IRQHandler to startup file")
+
+    # Patch startup file: add missing UART7_IRQHandler (G3519 wireless module only)
+    if info["chip"].upper() == "MSPM0G3519":
+        startup_file = startup_in_root if startup_in_root.exists() else (startup_in_ticlang if startup_in_ticlang.exists() else None)
+        if startup_file and startup_file.exists():
+            content = startup_file.read_text(encoding="utf-8")
+            if "UART7_IRQHandler" not in content:
+                content = content.replace(
+                    "void Default_Handler(void)",
+                    "void UART7_IRQHandler(void) __attribute__((weak, alias(\"Default_Handler\")));\nvoid Default_Handler(void)")
+                vector_pattern = r"(TIMA1_IRQHandler,\s*\n\s*)0,\s*// Index 28"
+                content = re.sub(vector_pattern, r"\1UART7_IRQHandler,  // Index 28 (UART7)", content)
+                if "UART7_IRQHandler" in content:
+                    startup_file.write_text(content, encoding="utf-8")
+                    print("[patch] added UART7_IRQHandler to startup file")
 
     # Step 2: Ensure ticlang/ and makefile exist (SysConfig may create ticlang/ but no makefile)
     ticlang_dir = proj / "ticlang"
@@ -197,7 +239,6 @@ if __name__ == "__main__":
     parser.add_argument("--rebuild", action="store_true", help="Delete ticlang/ and regenerate makefile from scratch")
     args = parser.parse_args()
     if args.rebuild:
-        import shutil
         ticlang = Path(args.project_dir) / "ticlang"
         if ticlang.exists():
             shutil.rmtree(ticlang)

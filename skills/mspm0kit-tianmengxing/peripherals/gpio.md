@@ -85,11 +85,18 @@ PA21, PA23 可用于纯 GPIO（输入/输出），但不可用于高速通信外
 
 ## SysConfig JS Snippet
 
+> **重要**：GPIO 模块用 `associatedPins` 数组模式，必须先 `.create(N)` 再用索引访问。
+> 不存在 `GPIO1.port` / `GPIO1.assignedPin` 这类直接属性。
+
 ### Output (LED, active-high)
 
 ```js
-GPIO1.$name                         = "LED";
-GPIO1.associatedPins[0].$name       = "LED";
+const GPIO  = scripting.addModule("/ti/driverlib/GPIO", {}, false);
+const GPIO1 = GPIO.addInstance();
+
+GPIO1.$name                          = "GPIO_LED";
+GPIO1.associatedPins.create(1);              // 必须先 create
+GPIO1.associatedPins[0].$name        = "LED_PIN";
 GPIO1.associatedPins[0].initialValue = "CLEARED";
 GPIO1.associatedPins[0].assignedPort = "PORTB";
 GPIO1.associatedPins[0].assignedPin  = "22";
@@ -100,10 +107,42 @@ GPIO1.associatedPins[0].pin.$assign  = "PB22";
 
 ```js
 GPIO1.$name                              = "BTN";
+GPIO1.associatedPins.create(1);
 GPIO1.associatedPins[0].$name            = "USER";
 GPIO1.associatedPins[0].direction        = "INPUT";
 GPIO1.associatedPins[0].internalResistor = "PULL_UP";
 GPIO1.associatedPins[0].assignedPort     = "PORTB";
 GPIO1.associatedPins[0].assignedPin      = "21";
 GPIO1.associatedPins[0].pin.$assign      = "PB21";
+```
+
+## GPIO 中断分组（CRITICAL）
+
+MSPM0 的 GPIO 中断**不是每引脚一个 IRQ**，而是按端口分组：
+
+| 中断组 | 包含 |
+|--------|------|
+| GROUP0 | GPIOA + 部分外设 |
+| GROUP1 | GPIOB + 部分外设 |
+
+天猛星按键在 PB21（GPIOB）→ 走 **GROUP1_IRQHandler**，不是 `GPIO_BTN_IRQHandler`。
+
+```c
+void GROUP1_IRQHandler(void)
+{
+    switch (DL_Interrupt_getPendingGroup(DL_INTERRUPT_GROUP_1)) {
+        case GPIO_BTN_INT_IIDX:
+            if (DL_GPIO_getEnabledInterruptStatus(GPIO_BTN_PORT, GPIO_BTN_USER_PIN)) {
+                DL_GPIO_clearInterruptStatus(GPIO_BTN_PORT, GPIO_BTN_USER_PIN);
+                // 业务逻辑
+            }
+            break;
+    }
+}
+```
+
+SysConfig 中需开启引脚中断：
+```js
+GPIO1.associatedPins[0].interruptEn  = true;
+GPIO1.associatedPins[0].polarity     = "FALL";  // 下降沿（按键按下）
 ```

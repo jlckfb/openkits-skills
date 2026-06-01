@@ -133,10 +133,17 @@ def main(
         source_dir = sdk_examples_dir / sdk_example
 
     if not source_dir:
+        if not config.get("sdk_examples"):
+            raise FileNotFoundError(
+                f"找不到示例 '{sdk_example}'，且 config.json 未配置 SDK 路径。\n"
+                "请先运行 `python scripts/setup.py` 配置工具链路径，\n"
+                "或提供 SDK 示例目录（例如 D:/TI/CCS/mspm0_sdk_2_05_01_00/examples/nortos/LP_MSPM0G3507/driverlib）。"
+            )
         raise FileNotFoundError(
             f"Example not found: {sdk_example}\n"
             f"  Looked in: {skill_examples_dir}\n"
-            f"  Looked in: {sdk_examples_dir}"
+            f"  Looked in: {sdk_examples_dir}\n"
+            "请确认示例名称正确，或检查 config.json 的 sdk_examples 路径。"
         )
 
     out = Path(output_dir or Path.cwd()) / project_name

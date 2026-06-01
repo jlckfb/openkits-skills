@@ -2,6 +2,31 @@
 
 For PWM output, see [pwm.md](pwm.md). This doc covers periodic interrupt timers.
 
+## CRITICAL: Timer Bit-Width Limits
+
+不同 TIMG 位宽不同，**长周期必须用 32 位定时器**：
+
+| Timer | 位宽 | 32MHz 下最大周期 | 80MHz 下最大周期 | 适用 |
+|-------|------|----------------|----------------|------|
+| TIMG0–TIMG7 | 16-bit | ~2 ms | ~0.8 ms | 短周期、PWM |
+| TIMA0, TIMA1 | 16-bit (+repeat) | 靠 repeat count 扩展 | — | 周期中断 |
+| TIMG12, TIMG13 | 32-bit | ~134 s | ~53 s | 长周期、500ms 闪烁 |
+
+> 典型错误：`TIMER_500MS timerPeriod: 500.00 ms is out of range` —— 用了 16 位的 TIMG0。改用 **TIMG12** 即可。
+
+## CRITICAL: SysConfig Module Name Case
+
+SysConfig 模块路径**大小写敏感**：
+
+| 正确 | 错误 |
+|------|------|
+| `/ti/driverlib/TIMER` | `/ti/driverlib/Timer` |
+| `/ti/driverlib/GPIO` | `/ti/driverlib/Gpio` |
+| `/ti/driverlib/PWM` | `/ti/driverlib/Pwm` |
+| `/ti/driverlib/UART` | `/ti/driverlib/Uart` |
+
+> 错误大小写报 `No such resource: /ti/driverlib/Timer.syscfg.js`。
+
 ## SDK Example
 
 `tima_timer_mode_periodic_repeat_count` — Periodic timer with repeat count
@@ -10,9 +35,10 @@ For PWM output, see [pwm.md](pwm.md). This doc covers periodic interrupt timers.
 
 | Timer | Status | Tianmengxing Usage |
 |-------|--------|--------------------|
-| TIMA0 | Free | System tick, periodic interrupt |
+| TIMA0 | Free | System tick, periodic interrupt (16-bit + repeat) |
 | TIMA1 | Free | Periodic interrupt |
-| TIMG0–TIMG12 | Free | Dual-use (PWM or timer, not both) |
+| TIMG0–TIMG7 | Free | 短周期/PWM（16-bit） |
+| TIMG12, TIMG13 | Free | 长周期（32-bit），500ms 闪烁用这个 |
 
 ## Periodic Interrupt Config Pattern (5 ms tick)
 
