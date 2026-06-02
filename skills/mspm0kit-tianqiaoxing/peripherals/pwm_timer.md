@@ -123,6 +123,34 @@ PWM1.PWM_CHANNEL_0.initVal = "HIGH";
 PWM1.PWM_CHANNEL_0.shadowUpdateMode = "ZERO_EVT";
 ```
 
+## Output Polarity — CRITICAL
+
+**EDGE_ALIGN_UP + INIT_VAL_LOW + INV_OUT_DISABLED** 的输出规则：
+
+| 阶段 | 输出 |
+|------|------|
+| counter < CC | LOW |
+| counter ≥ CC | HIGH |
+
+高电平占比 = `(PERIOD - CC) / PERIOD`：
+
+| CC 值 | 高电平占比 | LED 亮度（active-high） |
+|-------|-----------|----------------------|
+| 0 | ~100% | **全亮** |
+| PERIOD/2 | 50% | 半亮 |
+| PERIOD | ~0% | **全灭** |
+
+> **与 STM32 TIM ARR/CCR 方向相反**：STM32 CC 越大越亮，MSPM0 EDGE_ALIGN_UP 是 CC 越小越亮。
+
+**呼吸灯正确写法**（duty 增加 = 亮度增加）：
+
+```c
+#define PWM_PERIOD 5000u
+
+/* CC 取反使亮度随 duty 增加 */
+DL_TimerG_setCaptureCompareValue(PWM_0_INST, PWM_PERIOD - duty, DL_TIMER_CC_1_INDEX);
+```
+
 ## SysConfig PWM Module Crash (SDK 2.04 / SysConfig 1.27)
 
 SDK 2.04.00.06 + SysConfig 1.27.0 下，PWM 模块使用单通道 `ccIndex=[1]` 时 `Common.js` 可能崩溃。如遇崩溃，改用代码手动初始化 TIMG PWM：

@@ -128,3 +128,52 @@ GPIO1.associatedPins[0].assignedPort     = "PORTB";
 GPIO1.associatedPins[0].assignedPin      = "21";
 GPIO1.associatedPins[0].pin.$assign      = "PB21";
 ```
+
+### NVIC 必须手动启用（CRITICAL）
+
+`SYSCFG_DL_init()` 只调用外设层的 `DL_GPIO_enableInterrupt()`，**不会自动调用 `NVIC_EnableIRQ()`**。忘记加这一行则中断永远不会触发。
+
+```c
+int main(void)
+{
+    SYSCFG_DL_init();
+    NVIC_EnableIRQ(BTN_INT_IRQN);  /* 必须！SysConfig 不生成这行 */
+    // ...
+}
+```
+
+### 按键消抖与多操作（单击 / 双击 / 长按）
+
+推荐使用 **MultiButton** 库，不要自己写消抖逻辑：
+
+> 仓库：https://github.com/0x1abin/MultiButton
+
+**接入方式**：
+1. 将 `multi_button.c` / `multi_button.h` 复制到项目根目录
+2. 实现引脚读取回调（低电平有效）：
+
+```c
+uint8_t btn_read_pin(void *btn)
+{
+    return DL_GPIO_readPins(BTN_PORT, BTN_USER_PIN) ? 1 : 0;
+}
+```
+
+3. 初始化并注册事件：
+
+```c
+Button btn;
+button_init(&btn, btn_read_pin, 0, 0);  /* active_level=0（低电平有效） */
+button_attach(&btn, SINGLE_CLICK,     on_single_click);
+button_attach(&btn, DOUBLE_CLICK,     on_double_click);
+button_attach(&btn, LONG_PRESS_START, on_long_press);
+button_start(&btn);
+```
+
+4. 主循环每 5 ms 调用一次（用 SysTick 或 Timer 中断驱动）：
+
+```c
+button_ticks();
+```
+
+> MultiButton 已内置消抖，无需额外处理抖动。

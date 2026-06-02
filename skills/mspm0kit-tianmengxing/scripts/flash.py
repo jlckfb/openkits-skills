@@ -93,7 +93,7 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
     jlink_script = out_file.parent / "flash.jlink"
     jlink_script.write_text(
         f"si SWD\n"
-        f"speed 4000\n"
+        f"speed 1000\n"
         f"device {chip}\n"
         f"connect\n"
         f"r\n"

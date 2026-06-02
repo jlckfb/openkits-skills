@@ -52,9 +52,13 @@ def main(project_dir: str) -> int:
                 shutil.copy2(sf, dest)
                 print(f"[startup] copied {sf.name} to root")
                 fixed += 1
-        shutil.rmtree(ticlang)
-        print("[dir] removed ticlang/")
-        fixed += 1
+        try:
+            shutil.rmtree(ticlang)
+            print("[dir] removed ticlang/")
+            fixed += 1
+        except PermissionError as e:
+            print(f"[warn] could not remove ticlang/ (file in use): {e}")
+            print("[warn] ticlang/ left intact — build will overwrite it, this is safe to ignore")
 
     # 4. Remove leftover src/ directory (from old flat-structure scaffold)
     src_dir = proj / "src"
