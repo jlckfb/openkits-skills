@@ -177,3 +177,5 @@ button_ticks();
 ```
 
 > MultiButton 已内置消抖，无需额外处理抖动。
+
+> **所有中断外设均适用此规则**，不只是 GPIO。Timer、UART、SPI 等中断也需在 `SYSCFG_DL_init()` 后手动调用对应的 `NVIC_EnableIRQ(XXX_INST_INT_IRQN)`。

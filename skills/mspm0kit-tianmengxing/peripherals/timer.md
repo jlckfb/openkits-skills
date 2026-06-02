@@ -2,6 +2,41 @@
 
 For PWM output, see [pwm.md](pwm.md). This doc covers periodic interrupt timers.
 
+## CRITICAL: SysConfig TIMER Attribute Names
+
+TIMER 模块属性名**不能凭经验猜测**，必须参考 SDK 例程的 `.syscfg` 确认。常见错误：
+
+| 错误写法 | 正确写法 |
+|---------|---------|
+| `timerCount = 327` | `timerPeriod = "10 ms"` |
+| `timerClkSrc = "BUSCLK"` | 参考例程确认枚举值 |
+
+**LFCLK 用于长周期（10ms 以上）：**
+
+```js
+TIMER1.timerClkSrc = "LFCLK";   // 32768 Hz，支持 10ms～2s 周期
+TIMER1.timerPeriod = "10 ms";   // LOAD = 327
+```
+
+| 时钟源 | 频率 | 16-bit 最大周期 |
+|--------|------|----------------|
+| MCLK | 32 MHz | ~2 ms |
+| BUSCLK | 40 MHz | ~1.6 ms |
+| LFCLK | 32768 Hz | ~2 s |
+
+> 10ms 周期用 MCLK/BUSCLK 会超出 16-bit 范围报错，改用 LFCLK 或 32-bit TIMG12。
+
+## CRITICAL: Timer/PWM Must Be Started Manually
+
+`SYSCFG_DL_init()` **不会自动启动定时器**。初始化后必须显式调用：
+
+```c
+SYSCFG_DL_init();
+DL_TimerG_startCounter(PWM_LED_INST);       // PWM 定时器
+DL_TimerA_startCounter(TIMER_BREATHE_INST); // 周期中断定时器
+NVIC_EnableIRQ(TIMER_BREATHE_INST_INT_IRQN); // 中断也要手动启用
+```
+
 ## CRITICAL: Timer Bit-Width Limits
 
 不同 TIMG 位宽不同，**长周期必须用 32 位定时器**：

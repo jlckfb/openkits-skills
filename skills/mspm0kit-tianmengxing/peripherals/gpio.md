@@ -163,6 +163,8 @@ int main(void)
 }
 ```
 
+> **所有中断外设均适用此规则**，不只是 GPIO。Timer、UART、SPI 等中断也需在 `SYSCFG_DL_init()` 后手动调用对应的 `NVIC_EnableIRQ(XXX_INST_INT_IRQN)`。
+
 ### 按键消抖与多操作（单击 / 双击 / 长按）
 
 推荐使用 **MultiButton** 库，不要自己写消抖逻辑：

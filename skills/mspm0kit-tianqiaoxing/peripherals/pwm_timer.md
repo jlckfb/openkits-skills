@@ -123,6 +123,16 @@ PWM1.PWM_CHANNEL_0.initVal = "HIGH";
 PWM1.PWM_CHANNEL_0.shadowUpdateMode = "ZERO_EVT";
 ```
 
+## CRITICAL: Timer/PWM Must Be Started Manually
+
+`SYSCFG_DL_init()` 不会自动启动定时器。**必须在 init 后显式调用 startCounter**：
+
+```c
+SYSCFG_DL_init();
+DL_TimerG_startCounter(PWM_0_INST);         // PWM 定时器
+DL_TimerA_startCounter(TIMER_TICK_INST);    // 周期中断定时器
+```
+
 ## Output Polarity — CRITICAL
 
 **EDGE_ALIGN_UP + INIT_VAL_LOW + INV_OUT_DISABLED** 的输出规则：
@@ -138,7 +148,8 @@ PWM1.PWM_CHANNEL_0.shadowUpdateMode = "ZERO_EVT";
 |-------|-----------|----------------------|
 | 0 | ~100% | **全亮** |
 | PERIOD/2 | 50% | 半亮 |
-| PERIOD | ~0% | **全灭** |
+| PERIOD-1 | ~0% | **全灭**（注意：CC=PERIOD 会回绕到全亮！） |
+| PERIOD | 100% | ⚠️ 全亮（回绕，需钳制上限到 PERIOD-1） |
 
 > **与 STM32 TIM ARR/CCR 方向相反**：STM32 CC 越大越亮，MSPM0 EDGE_ALIGN_UP 是 CC 越小越亮。
 

@@ -148,7 +148,10 @@ For simple projects, keeping most logic in `main.c` is acceptable.
 | Pin(s) | Occupied by |
 |--------|-------------|
 | PA10, PA11 | UART0 to CH340 USB-C（排针可共用 TX/RX） |
-| PB6, PB7, PB8, PB9 | SPI1 — W25Q64 Flash + LCD 接口（共用 SPI 总线） |
+| PB6 | W25Q64 Flash CS（GPIO 控制） |
+| PB7 | SPI1 MISO（Flash 专用，LCD 无需） |
+| PB8 | SPI1 MOSI / LCD_SDA |
+| PB9 | SPI1 SCLK / LCD_SCL |
 | PB10 | LCD_RES |
 | PB11 | LCD_DC |
 | PB14 | LCD_CS |
