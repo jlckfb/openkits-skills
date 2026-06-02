@@ -105,12 +105,29 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
         encoding="utf-8",
     )
 
-    # 3. Flash
+    # 3. Flash — capture output to detect JLink failures even when exit code is 0
     jlink_cmd = [jlink, "-CommandFile", str(jlink_script)]
     print(f"[JLink] {' '.join(jlink_cmd)}")
-    r = subprocess.run(jlink_cmd, capture_output=False, text=True, cwd=str(out_file.parent))
-    if r.returncode != 0:
-        print(f"J-Link flash failed with exit code {r.returncode}")
+    r = subprocess.run(jlink_cmd, capture_output=True, text=True, cwd=str(out_file.parent))
+    output = r.stdout + r.stderr
+    print(output)
+
+    # JLink sometimes exits 0 even on connection failure — check output for error keywords
+    failure_keywords = [
+        "Cannot connect",
+        "Could not connect",
+        "FAILED:",
+        "Error: Failed",
+        "Programming failed",
+        "Verification failed",
+        "Unable to connect",
+    ]
+    found_failure = [kw for kw in failure_keywords if kw.lower() in output.lower()]
+    if r.returncode != 0 or found_failure:
+        if found_failure:
+            print(f"J-Link flash failed (detected: {found_failure[0]})")
+        else:
+            print(f"J-Link flash failed with exit code {r.returncode}")
         sys.exit(1)
     print("J-Link flash complete.")
 

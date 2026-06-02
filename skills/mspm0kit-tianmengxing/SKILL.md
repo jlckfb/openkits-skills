@@ -37,10 +37,12 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 ### Step 3 — Code
 
 1. Ask: "是否允许我读取 SDK 目录（`<sdk_root>`）来复制例程模板？"
-2. On approval, run:
+2. On approval, run scaffold using the **full path** to the skill's scripts directory:
    ```
-   python scripts/scaffold.py <project_name> <sdk_example_name> -o <cwd>
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianmengxing/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
    ```
+   The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
+   To locate the scripts: `find ~ -path "*/mspm0kit-tianmengxing/scripts/scaffold.py" 2>/dev/null`
 3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` and `.c` file.
 4. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
 5. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
@@ -51,8 +53,9 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 0. **MANDATORY: Run cleanup before building (every time):**
    ```bash
-   python scripts/cleanup.py <project_dir>
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianmengxing/scripts/cleanup.py <project_dir>
    ```
+   Use the **full path** to cleanup.py (same directory as scaffold.py above).
    This automatically:
    - Moves .c files from subdirectories to root (CCS flat rule)
    - Deletes duplicate .c files
@@ -62,7 +65,7 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 1. Run build:
    ```
-   python scripts/build.py <project_dir> --yes
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianmengxing/scripts/build.py <project_dir> --yes
    ```
    `--yes` 跳过交互确认。非交互环境（AI agent 调用）下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
@@ -83,20 +86,7 @@ flash.py 根据 config.json 的 `probe` 字段自动选择烧录方式：
 
 ### R0: 3-Layer Embedded Architecture
 
-All projects should follow a clean layered structure:
-
-```
-<project>/
-├── main.c                     # Entry point
-├── <project>.syscfg           # SysConfig
-├── bsp/                       # BSP — Board-level peripheral drivers
-│   └── bsp_<device>.c/h       #   e.g. bsp_led, bsp_flash
-├── middleware/                 # Middleware — Reusable frameworks
-│   └── ...
-├── app/                       # Application — Project-specific tasks
-│   └── app_<feature>.c/h
-└── targetConfigs/             # Debug probe config (CCS only)
-```
+`main.c` → `bsp/bsp_*.c/h` → `middleware/` → `app/app_*.c/h` → `targetConfigs/`
 
 For simple projects, keeping most logic in `main.c` is acceptable.
 
@@ -114,6 +104,17 @@ For simple projects, keeping most logic in `main.c` is acceptable.
 - Don't guess generated macro names. Read the generated header after SysConfig runs.
 - If SysConfig emits warnings, report them — don't call it "clean".
 - If hardware behavior is unverified, say "verification stopped at compile level".
+
+**Macro name patterns (reference only — always verify against `ti_msp_dl_config.h`):**
+
+| 外设 | `$name` 示例 | 典型宏 |
+|------|-------------|--------|
+| UART | `UART_0` | `UART_0_INST`, `UART_0_INST_INT_IRQN` |
+| GPIO 输出 | `GPIO_LED` | `GPIO_LED_PORT`, `GPIO_LED_PIN_PIN` |
+| GPIO 输入 | `GPIO_BTN` | `GPIO_BTN_PORT`, `GPIO_BTN_BTN_PIN_PIN`, `GPIO_BTN_INT_IIDX` |
+| Timer | `TIMER_TICK` | `TIMER_TICK_INST`, `TIMER_TICK_INST_IRQHandler` |
+| PWM | `PWM_0` | `PWM_0_INST`, `GPIO_PWM_0_C0_IDX` |
+| ADC | `ADC12_0` | `ADC12_0_INST`, `ADC12_0_INST_INT_IRQN` |
 
 ### R3: External Path Access
 
@@ -165,30 +166,20 @@ PB0–PB5, PB12, PB13, PB15–PB20, PB23–PB25, PB27
 
 ## Path Configuration
 
-The skill stores toolchain paths in `config.json`.
-
-**Do NOT pre-emptively ask the user for paths or permission.** Follow this order:
-
-1. **Try first.** Run the script (scaffold/build/flash) without asking for paths.
-2. **If it fails** because `config.json` is missing or paths are invalid, ask the user to provide the paths:
-   - "请提供 CCS 安装目录（例如 `C:/ti/ccstheia140`）："
-   - "请提供 MSPM0 SDK 示例目录（例如 `C:/ti/mspm0_sdk_2_10_00_04/examples/nortos`）："
-3. **Update `config.json`** via `python scripts/setup.py` or by writing directly.
-4. **If the user-provided path does not exist or lacks expected files** (e.g. no `LP_MSPM0G3507/` subdirectory, no `.syscfg` files), do NOT silently accept it. Say:
-   - "在 `<user_path>` 中没有发现 MSPM0G3507 的 SDK 示例（预期存在 `LP_MSPM0G3507/` 目录）。是否需要我自动搜索？"
-5. **If the user says yes**, use `scripts/setup.py` or search common install locations (e.g. `C:/ti/`, `C:/Program Files/Texas Instruments/`) for the correct path.
-6. **Retry** the failed script after paths are fixed.
+`config.json` 存储工具链路径。流程：先直接运行脚本 → 失败了再问用户路径 → 路径不存在时问是否自动搜索 → 用户同意后搜索 C/D/E 盘常见位置（`D:/TI/CCS/ccs`, `mspm0_sdk*` 等）→ 找到后写入 config.json → 重试。
 
 ## Tools
 
 | Script | Purpose |
 |--------|---------|
-| `python scripts/setup.py` | First-time path configuration |
-| `python scripts/scaffold.py <name> <example> -o <dir>` | Generate CCS project（优先搜索 SDK 示例） |
-| `python scripts/build.py <project_dir>` | SysConfig CLI + gmake compile |
-| `python scripts/flash.py <project_dir>` | DSLite flash |
-| `python scripts/serial_console.py -p <port> -b <baud>` | Serial monitor |
-| `python scripts/cleanup.py <project_dir>` | **MANDATORY before build**: fix .c in subdirs, remove generated files from root |
+| `setup.py` | First-time path configuration |
+| `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
+| `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
+| `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
+| `serial_console.py -p <port> -b <baud>` | Serial monitor |
+| `cleanup.py <project_dir>` | **MANDATORY before build** |
+
+> All scripts are in the skill install directory: `~/.claude/skills/mspm0kit-tianmengxing/scripts/`. Use full path when calling.
 
 ## Clock Configuration
 
@@ -203,37 +194,6 @@ SYSCTL.clockTreeEn           = true;
 这会用内部时钟（约 32 MHz），无需外部晶振，适合 GPIO/UART/定时器等多数场景。
 
 **需要 80 MHz HFXT 时**：属性名因 SDK 版本而异，必须参考当前 SDK 的示例 `.syscfg`（如 `LP_MSPM0G3507/.../*.syscfg`）确认确切写法，不要凭记忆填属性名。
-
-## SDK Example Index
-
-### Standard Peripherals (from MSPM0 SDK)
-
-Key SDK examples (under `examples/nortos/LP_MSPM0G3507/driverlib/`):
-
-| Peripheral | SDK Example | Default Pins |
-|-----------|-------------|--------------|
-| GPIO Output | `gpio_toggle_output` | PB22, PB26, PB27, PB14 |
-| UART TX/RX | `uart_rw_multibyte_fifo_poll` | PA10(TX), PA11(RX) |
-| UART Console | `uart_tx_console_multibyte_repeated_fifo_dma` | PA10(TX), PA11(RX) |
-| UART Echo | `uart_echo_interrupts_standby` | PA10/PA11 |
-| SPI Controller | `spi_controller_multibyte_fifo_poll` | PB7, PB8, PB31, PB6 |
-| SPI Controller DMA | `spi_controller_fifo_dma_interrupts` | PB7, PB8, PB31, PB6 |
-| I2C Controller | `i2c_controller_rw_multibyte_fifo_poll` | PC2(SCL), PC3(SDA) |
-| ADC Single | `adc12_single_conversion` | PA14 (ADC0 ch12) |
-| ADC Internal Temp | `adc12_internal_temp_sensor_mathacl` | — |
-| PWM Timer | `timg_32bit_timer_mode_pwm_edge_sleep` | PB6, PB7 (TIMG12) |
-| Timer Periodic | `tima_timer_mode_periodic_repeat_count` | — |
-
-> SDK 默认 pin 中 PB26, PB27, PB14, PB31 在天猛星上已被占用或有限制，scaffold 后需要按 pin 表调整。
-
-## External Modules
-
-When asked to drive an external sensor, motor, display, or radio:
-
-- Ask for: datasheet, schematic, pin map, supply voltage, logic level, protocol, key timing.
-- Before blaming code: check power, ground, pull-ups, level shifting, reset/enable pins, TX/RX crossover, I2C address, SPI mode, PWM polarity, shared pins.
-- After repeated failures with correct SysConfig + build + flash: suggest checking wiring, power, module mode, datasheet mismatch.
-- Separate "firmware looks correct" from "hardware proved correct".
 
 ## Reference
 

@@ -40,10 +40,12 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 ### Step 3 — Code
 
 1. Ask: "是否允许我读取 SDK 目录（`<sdk_root>`）来复制例程模板？"
-2. On approval, run:
+2. On approval, run scaffold using the **full path** to the skill's scripts directory:
    ```
-   python scripts/scaffold.py <project_name> <sdk_example_name> -o <cwd>
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
    ```
+   The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
+   To locate the scripts: `find ~ -path "*/mspm0kit-tianqiaoxing/scripts/scaffold.py" 2>/dev/null`
 3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` and `.c` file.
 4. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
 5. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
@@ -54,8 +56,9 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 0. **MANDATORY: Run cleanup before building (every time):**
    ```bash
-   python scripts/cleanup.py <project_dir>
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/cleanup.py <project_dir>
    ```
+   Use the **full path** to cleanup.py (same directory as scaffold.py above).
    This automatically:
    - Moves .c files from subdirectories to root (CCS flat rule)
    - Deletes duplicate .c files
@@ -65,7 +68,7 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 1. Run build:
    ```
-   python scripts/build.py <project_dir> --yes
+   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/build.py <project_dir> --yes
    ```
    `--yes` 跳过交互确认。非交互环境下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
@@ -76,28 +79,9 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 ### R0: 4-Layer Embedded Architecture (HIGHEST PRIORITY)
 
-All projects must follow the HAL → BSP → Middleware → App 4-layer structure.
+`main.c` → `hal/hal_*.c/h` → `bsp/bsp_*.c/h` → `middleware/` → `app/app_*.c/h` → `targetConfigs/`
 
-```
-<project>/
-├── main.c                     # Entry point
-├── <project>.syscfg           # SysConfig
-├── hal/                       # HAL — MCU register abstraction (optional)
-│   └── hal_<periph>.c/h       #   e.g. hal_i2c, hal_timer
-├── bsp/                       # BSP — Board-level peripheral drivers
-│   └── bsp_<device>.c/h       #   e.g. bsp_led, bsp_imu, bsp_i2c
-├── middleware/                 # Middleware — Reusable frameworks & protocols
-│   ├── oled/                  #   OLED UI framework
-│   ├── button/                #   MultiButton library
-│   ├── fusion/                #   AHRS attitude fusion
-│   ├── wireless/              #   Wireless UART protocol
-│   └── timer/                 #   System tick service
-├── app/                       # Application — Project-specific tasks & UI
-│   └── app_<feature>.c/h      #   e.g. app_cube, app_menu
-└── targetConfigs/             # Debug probe config (CCS only)
-```
-
-**Each module is self-contained**: `.c` and `.h` live together in the same directory.
+Each module is self-contained: `.c` and `.h` live together. For simple projects, `main.c` is acceptable.
 
 ### R1: Generated Files
 
@@ -114,6 +98,17 @@ All projects must follow the HAL → BSP → Middleware → App 4-layer structur
 - If SysConfig emits warnings, report them — don't call it "clean".
 - If hardware behavior is unverified, say "verification stopped at compile level".
 
+**Macro name patterns (reference only — always verify against `ti_msp_dl_config.h`):**
+
+| 外设 | `$name` 示例 | 典型宏 |
+|------|-------------|--------|
+| UART | `UART_0` | `UART_0_INST`, `UART_0_INST_INT_IRQN` |
+| GPIO 输出 | `GPIO_LED` | `GPIO_LED_PORT`, `GPIO_LED_PIN_PIN` |
+| GPIO 输入 | `GPIO_BTN` | `GPIO_BTN_PORT`, `GPIO_BTN_BTN_PIN_PIN`, `GPIO_BTN_INT_IIDX` |
+| Timer | `TIMER_TICK` | `TIMER_TICK_INST`, `TIMER_TICK_INST_IRQHandler` |
+| PWM | `PWM_0` | `PWM_0_INST`, `GPIO_PWM_0_C0_IDX` |
+| ADC | `ADC12_0` | `ADC12_0_INST`, `ADC12_0_INST_INT_IRQN` |
+
 ### R3: External Path Access
 
 - Do NOT ask for path permission upfront. Try the operation first.
@@ -122,23 +117,15 @@ All projects must follow the HAL → BSP → Middleware → App 4-layer structur
 
 ### R4: Generated Macro Verification (CRITICAL)
 
-SDK 2.04.00.06 + SysConfig 1.27.0 的 LQFP-64(PM) 封装存在引脚映射 bug。**每次 SysConfig 生成后必须验证宏**：
-
-1. After SysConfig runs, `grep` the generated `ti_msp_dl_config.h` for all `_PORT` and `_PIN` macros.
-2. Verify the port is correct (e.g. `GPIOB` for PB22, not `GPIOA`).
-3. If macros are wrong, fall back to direct register values:
-   ```c
-   DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);  // use direct values, not generated macros
-   ```
-4. **Always** pair `DL_GPIO_initDigitalOutput()` with `DL_GPIO_enableOutput()` — the first only configures IOMUX, not output direction.
-5. Upgrade to SDK >= 2.05.01.01 resolves the macro bug.
+SDK 2.04 + SysConfig 1.27 的 LQFP-64(PM) 有引脚映射 bug：生成的 `_PORT`/`_PIN` 宏可能指向错误端口。
+- SysConfig 后必须 grep `ti_msp_dl_config.h` 验证宏值
+- 宏错误时直接用 `GPIOB, DL_GPIO_PIN_22` 等具体值
+- `DL_GPIO_initDigitalOutput()` 只配 IOMUX，必须额外调 `DL_GPIO_enableOutput()`
+- 升级到 SDK >= 2.05.01.01 解决此 bug
 
 ### R5: Pin Table is Authoritative
 
-The pin occupation table in this SKILL.md is the single source of truth for pin availability. When choosing pins:
-- Check the occupation table FIRST before any peripheral assignment.
-- Yellow-background cells in the official 外设引脚功能标注表.xlsx indicate pins that MUST NOT be used.
-- If a user requests a pin listed as occupied or yellow, warn them explicitly before proceeding.
+选引脚前必须查 Pin Table。黄色标注（外设引脚功能标注表.xlsx）的引脚不可使用。用户要求占用引脚时须明确警告。
 
 
 ## Pin Table — Tianqiaoxing MSPM0G3519
@@ -186,91 +173,21 @@ All other pins not listed above. The board uses LQFP-64(PM) package.
 
 ## Path Configuration
 
-The skill stores toolchain paths in `config.json`.
-
-### CRITICAL: Strict Order — Do NOT Skip Steps
-
-**NEVER search for paths before asking the user.** AI-initiated auto-search is forbidden until step 5.
-
-1. **Try first.** Run the script (scaffold/build/flash) without asking for paths or searching.
-2. **If it fails** because `config.json` is missing or paths are invalid — **only ask the user**, do NOT search:
-   - "请提供 CCS 安装目录（例如 `C:/ti/ccstheia140`）："
-   - "请提供 MSPM0 SDK 示例目录（例如 `C:/ti/mspm0_sdk_2_10_00_04/examples/nortos`）："
-   - Wait for user response. Do NOT run `find`, `ls`, or any search command at this step.
-3. **Validate the user's input.** Use `Path(...).exists()` to check. No searching.
-4. **If user path does not exist or lacks expected files** (e.g. no `LP_MSPM0G3519/` subdirectory), tell the user:
-   - "默认路径未找到（在 `<user_path>` 中未发现 SDK 示例目录）。是否需要我扩大搜索范围？"
-   - Wait for user consent. Do NOT search until the user says yes.
-5. **Only if user says yes**, search common install locations across C/D/E drives. Use BROAD patterns (NOT just `ccstheia*`):
-   - CCS: search for `TI/CCS/ccs/`, `ccs/theia/`, `ti/ccs/`, `Texas Instruments/`
-   - SDK: search for `mspm0_sdk*`, `MSPM0_SDK*`, `mspm0-sdk*`
-   - Typical found locations: `D:/TI/CCS/ccs`, `D:/TI/CCS/mspm0_sdk_2_05_01_00`, `C:/ti/ccstheia140`
-6. **After paths are resolved**, update `config.json` via `python scripts/setup.py` or by writing directly.
-7. **Retry** the failed script.
+`config.json` 存储工具链路径。流程：先直接运行脚本 → 失败了再问用户路径 → 路径不存在时问是否自动搜索 → 用户同意后搜索 C/D/E 盘常见位置（`D:/TI/CCS/ccs`, `mspm0_sdk*` 等）→ 找到后写入 config.json → 重试。
 
 ## Tools
 
 | Script | Purpose |
 |--------|---------|
-| `python scripts/setup.py` | First-time path configuration |
-| `python scripts/scaffold.py <name> <example> -o <dir>` | Generate CCS project (searches bundled examples first, then SDK) |
-| `python scripts/build.py <project_dir>` | SysConfig CLI + gmake compile |
-| `python scripts/flash.py <project_dir>` | DSLite flash |
-| `python scripts/serial_console.py <port> -b <baud>` | Serial monitor |
-| `python scripts/cleanup.py <project_dir>` | **MANDATORY before build**: fix .c in subdirs, remove generated files from root |
-| `python scripts/scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]` | Generate OLED UI project (bundled, no external repo needed) |
+| `setup.py` | First-time path configuration |
+| `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
+| `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
+| `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
+| `serial_console.py -p <port> -b <baud>` | Serial monitor |
+| `cleanup.py <project_dir>` | **MANDATORY before build** |
+| `scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]` | Generate OLED UI project |
 
-## SDK Example Index
-
-### Standard Peripherals (from MSPM0 SDK)
-
-Key SDK examples (under `examples/nortos/LP_MSPM0G3519/driverlib/`):
-
-| Peripheral | SDK Example | Default Pins |
-|-----------|-------------|--------------|
-| GPIO Output | `gpio_toggle_output` | PB22, PB26, PB27, PB14 |
-| UART TX/RX | `uart_rw_multibyte_fifo_poll` | PA10(TX), PA11(RX) |
-| UART Console | `uart_tx_console_multibyte_repeated_fifo_dma` | PA10(TX), PA11(RX) |
-| UART Echo | `uart_echo_interrupts_standby` | PA10/PA11 |
-| SPI Controller | `spi_controller_multibyte_fifo_poll` | PB7, PB8, PB31, PB6 |
-| SPI Controller DMA | `spi_controller_fifo_dma_interrupts` | PB7, PB8, PB31, PB6 |
-| I2C Controller | `i2c_controller_rw_multibyte_fifo_poll` | PC2(SCL), PC3(SDA) |
-| ADC Single | `adc12_single_conversion` | PA14 (ADC0 ch12) |
-| ADC Internal Temp | `adc12_internal_temp_sensor_mathacl` | — |
-| PWM Timer | `timg_32bit_timer_mode_pwm_edge_sleep` | PB6, PB7 (TIMG12) |
-| Timer Periodic | `tima_timer_mode_periodic_repeat_count` | — |
-| QEI | `timg_qei_mode` | — |
-
-### Bundled Board Examples (no SDK dependency)
-
-These are self-contained in the skill's `examples/` directory. They do NOT require the OLED_UI repo or any external source.
-
-| Module | Example Name | Pins | Use |
-|--------|-------------|------|-----|
-| Wireless UART | `wireless_uart7` | PB17/PB18 | `scaffold.py <name> wireless_uart7` |
-| WS2812 RGB LED | `ws2812_rgb` | PB26 | `scaffold.py <name> ws2812_rgb` |
-| IMU LSM6DS3 | `imu_lsm6ds3` | PA27/PA28 | `scaffold.py <name> imu_lsm6ds3` |
-| QEI Encoder | `encoder_qei` | PA29/PA30/PA31 | `scaffold.py <name> encoder_qei` or `--with-encoder` |
-
-### OLED UI Framework (bundled, no external dependencies)
-
-When the user asks to "移植屏幕UI" or "add OLED display":
-
-1. Run `python scripts/scaffold_oled.py <project_name>` — uses bundled examples, no external repo needed
-2. `--mode draw` (default): basic drawing API (OLED_Init, ShowString, PrintfMix)
-3. `--mode menu`: full menu engine with pages, cursor, animations
-4. Optional: `--with-imu`, `--with-ws2812`, `--with-wireless`, `--i2c hw`
-5. Built-in bitmap fonts (F6x8~F10x20 ASCII + CF12x12~CF20x20 Chinese), no Flash required
-6. Reference: `peripherals/oled_ui.md` for API
-
-## External Modules
-
-When asked to drive an external sensor, motor, display, or radio:
-
-- Ask for: datasheet, schematic, pin map, supply voltage, logic level, protocol, key timing.
-- Before blaming code: check power, ground, pull-ups, level shifting, reset/enable pins, TX/RX crossover, I2C address, SPI mode, PWM polarity, shared pins.
-- After repeated failures with correct SysConfig + build + flash: suggest checking wiring, power, module mode, datasheet mismatch.
-- Separate "firmware looks correct" from "hardware proved correct".
+> All scripts are in the skill install directory: `~/.claude/skills/mspm0kit-tianqiaoxing/scripts/`. Use full path when calling.
 
 ## Reference
 
