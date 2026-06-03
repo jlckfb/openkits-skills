@@ -118,3 +118,32 @@ DL_TimerG_setCaptureCompareValue(PWM_0_INST, PWM_PERIOD - duty, DL_TIMER_CC_1_IN
 DL_TimerG_setCaptureCompareValue(PWM_0_INST, duty, DL_TIMER_CC_0_INDEX);
 DL_TimerG_startCounter(PWM_0_INST);
 ```
+
+## Common Pitfalls
+
+### P1: Unsigned int underflow in breathing loops
+
+**Bug**: `unsigned int` 递减循环 `for (unsigned i = 999; i >= 1; i -= 5)` 在 `i = 4` 执行后 `4 - 5 = 0xFFFFFFFF`（无符号回绕），`0xFFFFFFFF >= 1` 永远为真 → **死循环**，LED 停在某个固定亮度。
+
+**Fix**: 循环变量用 `int`，传入 API 时显式转换：
+
+```c
+for (int duty = PWM_MAX; duty >= PWM_MIN; duty -= FADE_STEP) {
+    DL_TimerG_setCaptureCompareValue(
+        PWM_0_INST, (unsigned int)duty, GPIO_PWM_0_C1_IDX);
+    delay_cycles(FADE_DELAY);
+}
+```
+
+### P2: `DL_TimerG_startCounter()` is mandatory
+
+`SYSCFG_DL_init()` 配置引脚和时钟后，**定时器计数器不会自动启动**。忘记调用 `startCounter` 会导致 PWM 引脚完全无波形输出（LED 不亮）。参见上文 [CRITICAL: Timer/PWM Must Be Started Manually](#critical-timerpwm-must-be-started-manually)。
+
+### P3: EDGE_ALIGN_UP polarity is opposite to STM32 / common tutorials
+
+| 平台 | 常见行为 | MSPM0 EDGE_ALIGN_UP |
+|------|---------|-------------------|
+| STM32 TIM | CCR↑ = 占空比↑ = 更亮 | 不适用 |
+| MSPM0 EDGE_ALIGN_UP | — | **CC↓ = 高电平占比↑ = 更亮** |
+
+SysConfig PWM 模块默认模式为 **EDGE_ALIGN_UP**。部分在线教程（如某些 wiki）描述的是 EDGE_ALIGN_DOWN 行为（CC↑=亮），直接照搬会导致呼吸方向反转。详见上文 [Output Polarity](#output-polarity--critical)。
