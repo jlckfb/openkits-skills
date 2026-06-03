@@ -226,6 +226,8 @@ SYSCTL.clockTreeEn           = true;
 
 这会用内部时钟（约 32 MHz），无需外部晶振，适合 GPIO/UART/定时器等多数场景。
 
+> ⚠️ **STOP2 / 睡眠模式陷阱**：如果使用 SysTick 或定时器中断驱动实时任务（PWM 呼吸灯、按键轮询等），**禁止**使用 `SYSCTL.powerPolicy = "STOP2"` 或 `__WFI()`。STOP2 模式关闭 CPU 时钟（MCLK），SysTick 和所有依赖 MCLK 的 ISR 将完全停止。主循环中的 `delay_cycles()` 也失效。**默认不要加 `powerPolicy`，保持 RUN 模式即可。**
+
 **需要 80 MHz HFXT 时**：属性名因 SDK 版本而异，必须参考当前 SDK 的示例 `.syscfg`（如 `LP_MSPM0G3507/.../*.syscfg`）确认确切写法，不要凭记忆填属性名。
 
 ## Reference

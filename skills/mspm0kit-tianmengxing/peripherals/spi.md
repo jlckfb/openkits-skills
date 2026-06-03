@@ -122,6 +122,64 @@ SysConfig 中 SPI 帧格式和代码中的传输 API 必须一致。不匹配会
 
 > LCD 驱动推荐：命令/参数用 `transmitDataBlocking8`（简单可靠），像素数据用 `fillTXFIFO8`（性能更好）。
 
+### SysConfig SPI 属性类型陷阱
+
+- **`dataSize` 是 number，不是 string**：写 `dataSize = 8`，**不要**写 `dataSize = "8"`
+- **波特率属性名是 `targetBitRate`**，不是 `bitRate`
+- **SPI 最大频率 = BUSCLK/2**：32MHz BUSCLK → 最高 16MHz。设 20MHz 会报 `input clock frequency must be at least 2x faster`
+
+### LCD 全屏填充性能警告
+
+`lcd_fill()` 全屏填充 170×320×2 = 108,800 字节，SPI 16MHz 下约需 **54ms**，默认 4MHz 约需 **218ms**。在 `while(1)` 主循环中每轮调用会导致其他实时任务（PWM 呼吸灯、按键轮询）严重阻塞。
+
+```c
+/* ❌ 错误：每轮都刷屏，呼吸灯被阻塞 */
+while (1) {
+    lcd_fill(color);    // 54-218ms 阻塞
+    pwm_breathe();      // 永远得不到 CPU
+}
+
+/* ✅ 正确：仅在状态变化时刷屏 */
+while (1) {
+    if (pressed != last_state) {
+        last_state = pressed;
+        lcd_fill(pressed ? GREEN : RED);
+    }
+    pwm_breathe();
+    delay_ms(5);
+}
+```
+
+### ST7789V 170×320 面板参数
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| 分辨率 | 170×320 | 可视区域 |
+| GRAM | 240×320 | ST7789V 原生 |
+| COL_OFFSET | **35** | `(240-170)/2`，CASET 需加此偏移 |
+| ROW_OFFSET | 0 | 无需偏移 |
+| MADCTL | 0x00 | 竖屏默认，如需旋转调整 MX/MY 位 |
+| COLMOD | 0x55 | RGB565, 16-bit/pixel |
+
+```c
+#define LCD_WIDTH      170
+#define LCD_HEIGHT     320
+#define LCD_COL_OFFSET 35
+
+void lcd_set_window(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+    uint16_t xe = x + LCD_COL_OFFSET + w - 1;
+    uint16_t ye = y + h - 1;
+    lcd_cs_low();
+    lcd_cmd(0x2A);  // CASET
+    lcd_dat(x + LCD_COL_OFFSET >> 8);
+    lcd_dat((x + LCD_COL_OFFSET) & 0xFF);
+    lcd_dat(xe >> 8);
+    lcd_dat(xe & 0xFF);
+    // RASET 类似...
+    lcd_cs_high();
+}
+```
+
 - 通过 SPI1 访问，CS 为 PB6 普通 GPIO
 - 与 LCD 共享 SPI 总线，同一时间只能操作一个设备（通过各自的 CS 切换）
 - W25Q64 容量 8MB，比天巧星的 W25Q128 (16MB) 小一半
@@ -132,6 +190,8 @@ SDK 2.10 使用旧命名 `mosiPin` / `misoPin`，**不是** `picoPin` / `pociPin
 
 ```js
 // ✅ SDK 2.10 正确写法
+SPI1.targetBitRate            = 16000000;  // 最大 BUSCLK/2
+SPI1.dataSize                 = 8;          // number，不是 "8"
 SPI1.peripheral.mosiPin.$assign = "PB8";   // 不是 picoPin
 SPI1.peripheral.misoPin.$assign = "PB7";   // 不是 pociPin
 SPI1.peripheral.sclkPin.$assign = "PB9";

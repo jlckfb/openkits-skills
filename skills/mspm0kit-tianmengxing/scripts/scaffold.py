@@ -22,7 +22,7 @@ def _load_config(config_path: str) -> dict:
         return {}
 
 
-def _clean_project(out: Path) -> None:
+def _clean_project(out: Path, project_name: str, sdk_example: str) -> None:
     """Remove IAR/Keil startup files and fix up project for ticlang-only build."""
 
     # Remove IAR/Keil startup directories and files
@@ -65,6 +65,9 @@ def _clean_project(out: Path) -> None:
         # Fix ticlang startup path: ../startup_xxx.c → ticlang/startup_xxx.c
         updated = re.sub(rf'\.\./startup_{STARTUP_PATTERN}_ticlang\.c',
                          f'ticlang/startup_{STARTUP_PATTERN}_ticlang.c', updated)
+        # Replace SDK example name with project name in makefile references
+        # (gcc/makefile, etc. may still reference gpio_toggle_output.obj etc.)
+        updated = updated.replace(sdk_example, project_name)
 
         if updated != content:
             with open(mk, 'w', encoding='utf-8', newline='\n') as f:
@@ -197,7 +200,7 @@ def main(
             shutil.copy2(item, dst_file)
 
     # 2. Clean up IAR/Keil files and fix makefiles
-    _clean_project(out)
+    _clean_project(out, project_name, sdk_example)
 
     # 3. Generate .projectspec
     pspec_files = list((source_dir / "ticlang").glob("*.projectspec")) if (source_dir / "ticlang").is_dir() else []

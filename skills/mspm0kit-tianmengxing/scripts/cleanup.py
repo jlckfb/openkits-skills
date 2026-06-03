@@ -46,7 +46,7 @@ def main(project_dir: str) -> int:
             if cf.name in root_c_files:
                 root_dup = proj / cf.name
                 if root_dup.exists():
-                    if root_dup.read_text() == cf.read_text():
+                    if root_dup.read_text(encoding="utf-8") == cf.read_text(encoding="utf-8"):
                         root_dup.unlink()
                         print(f"[dup] removed root/{cf.name} (keep {cf.relative_to(proj)})")
                         fixed += 1

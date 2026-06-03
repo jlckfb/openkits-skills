@@ -139,6 +139,8 @@ GPIO1.associatedPins[0].pin.$assign  = "PB22";
 
 ### Input (button, pull-up, active-low)
 
+> ⚠️ **CRITICAL**: `internalResistor` **不会**自动将方向设为输入。GPIO 默认方向为 OUTPUT，必须显式添加 `direction = "INPUT"`。忘记这行会导致按键完全无反应，且生成的 `ti_msp_dl_config.c` 中会调用 `DL_GPIO_initDigitalOutputFeatures` 而非 `DL_GPIO_initDigitalInputFeatures`。
+
 ```js
 GPIO1.$name                              = "BTN";
 GPIO1.associatedPins.create(1);
