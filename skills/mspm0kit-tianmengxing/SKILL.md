@@ -19,7 +19,7 @@ When the user requests a new project, follow these four steps:
 1. Identify the peripheral(s) the user wants (UART, GPIO, PWM, SPI, ADC, Timer).
 2. Check the pin table below to confirm target pins are available.
 3. Read the corresponding `peripherals/<peripheral>.md` for the SDK example name and pin mapping.
-4. Confirm clock needs (default: 80 MHz CPUCLK with 40 MHz HFXT).
+4. Confirm clock needs. SDK 模板默认使用内部时钟 **32 MHz**（`CPUCLK_FREQ = 32000000`）。如需 80 MHz，需在 SysConfig 中显式配置 HFXT+PLL。延时计算应使用 `CPUCLK_FREQ` 宏而非硬编码常量。
 
 ### Step 2 — Plan
 
@@ -28,7 +28,7 @@ Tell the user what you're going to create:
 - Project name and target directory
 - Which SDK example will be used as the template
 - Which pins will be configured
-- Clock configuration (default 80 MHz)
+- Clock configuration（SDK 模板默认 32 MHz 内部时钟，延时用 `CPUCLK_FREQ`）
 
 Wait for confirmation before creating files, OR proceed if the user has indicated they want automatic execution.
 
@@ -51,6 +51,9 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
    - 通用查找: `ls ~/.claude/skills/mspm0kit-tianmengxing/scripts/` 或 `ls ~/.reasonix/skills/mspm0kit-tianmengxing/scripts/` 或 `ls ~/.agents/skills/mspm0kit-tianmengxing/scripts/`
 3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` and `.c` file.
 4. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
+
+   > ⚠️ **延时函数陷阱**：MSPM0 DriverLib **没有** `DL_Delay_ms()` 或 `DL_Delay_us()` 函数。唯一可用的延时 API 是 `delay_cycles(n)`（定义在 `dl_core.h`）。不要凭 ARM/STM32 经验猜测 API 名称。如需 ms 级精确延时，使用 Timer 定时器中断。
+
 5. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
    - If yes → proceed to Step 4 (build + report errors)
    - If no → just print the project path and usage instructions

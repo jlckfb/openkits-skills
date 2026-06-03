@@ -2,7 +2,9 @@
 
 ## SDK Example
 
-`gpio_toggle_output` — toggles 4 pins (PB22, PB26, PB27, PB14) with delay
+`gpio_toggle_output` — toggles 4 pins (PB22, PB26, PB27, PB16) with delay
+
+> **SDK 版本差异**：不同 SDK 版本的模板默认引脚可能不同。SDK 2.05 使用 PB16（USER_TEST），旧版本可能使用 PB14。以实际 `config.json` 的 `sdk_root` 指向的 SDK 版本为准。
 
 ## Pin Mapping (LP → Tianmengxing)
 
@@ -10,8 +12,8 @@
 |---------|----------|--------------|--------|
 | PB22 | USER_LED_1 | PB22 (onboard LED) | Keep |
 | PB26 | USER_LED_2 | PB26 (LCD BLK) | Remove (occupied) |
-| PB27 | USER_LED_3 | PB27 | Keep as test output (free) |
-| PB14 | USER_TEST | PB14 (LCD_CS) | Remove (occupied) |
+| PB27 | USER_LED_3 | PB27 | Remove (no onboard LED — 仅板载 LED 项目只保留 PB22) |
+| PB16 | USER_TEST | PB16 | Remove (no onboard LED — 仅板载 LED 项目只保留 PB22) |
 
 ## Recommended Pattern
 
@@ -77,12 +79,12 @@ PA21, PA23 可用于纯 GPIO（输入/输出），但不可用于高速通信外
 
 1. **GPIO instance `$name` and pin `$name` MUST NOT be equal** — SysConfig treats them as globally unique identifiers.
    - WRONG: instance=`"LED"`, pin=`"LED"` → Duplicate name error
-   - CORRECT: instance=`"LED"`, pin=`"PIN"` or `"OUT"`
+   - CORRECT: instance=`"GPIO_LED"`, pin=`"LED_PIN"`（与下方 SysConfig snippet 一致）
 
-2. **Generated macro format**:
-   - Port macro: `<INSTANCE>_PORT` → e.g. `LED_PORT` = `GPIOB`
-   - Pin macro: `<INSTANCE>_<PIN>_PIN` → e.g. `LED_PIN_PIN` = `DL_GPIO_PIN_22`
-   - IOMUX macro: `<INSTANCE>_<PIN>_IOMUX` → e.g. `LED_PIN_IOMUX` = `IOMUX_PINCM50`
+2. **Generated macro format**（以 instance=`"GPIO_LED"`, pin=`"LED_PIN"` 为例）:
+   - Port macro: `<INSTANCE>_PORT` → e.g. `GPIO_LED_PORT` = `GPIOB`
+   - Pin macro: `<INSTANCE>_<PIN>_PIN` → e.g. `GPIO_LED_LED_PIN_PIN` = `DL_GPIO_PIN_22`
+   - IOMUX macro: `<INSTANCE>_<PIN>_IOMUX` → e.g. `GPIO_LED_LED_PIN_IOMUX` = `IOMUX_PINCM50`
 
 3. **Always run SysConfig first**, then `grep` the generated `ti_msp_dl_config.h` to confirm actual macro names before writing code.
 
