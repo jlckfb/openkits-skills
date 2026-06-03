@@ -91,7 +91,7 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
 
     # 2. JLink command file
     jlink_script = out_file.parent / "flash.jlink"
-    jlink_script.write_text(
+    jlink_content = (
         f"si SWD\n"
         f"speed 1000\n"
         f"device {chip}\n"
@@ -101,9 +101,10 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
         f"loadfile {hex_file.name}\n"
         f"r\n"
         f"g\n"
-        f"qc\n",
-        encoding="utf-8",
+        f"qc\n"
     )
+    with open(jlink_script, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(jlink_content)
 
     # 3. Flash — capture output to detect JLink failures even when exit code is 0
     jlink_cmd = [jlink, "-CommandFile", str(jlink_script)]
@@ -140,7 +141,7 @@ def _flash_dslite(out_file: Path, proj: Path, chip: str, config: dict) -> None:
         target_dir = proj / "targetConfigs"
         target_dir.mkdir(exist_ok=True)
         ccxml_path = target_dir / f"{chip}.ccxml"
-        _write_default_ccxml(ccxml_path, "XDS110", chip)
+        _write_default_ccxml(ccxml_path, config.get("probe", "XDS110"), chip)
     else:
         ccxml_path = ccxml[0]
 
@@ -161,13 +162,20 @@ def _flash_dslite(out_file: Path, proj: Path, chip: str, config: dict) -> None:
 
 
 def _write_default_ccxml(path: Path, probe: str, chip: str) -> None:
-    conn_name = "Texas Instruments XDS110 USB Debug Probe"
-    conn_xml = "connections/TIXDS110_Connection.xml"
-    driver_dap = "tixds510cs_dap.xml"
-    driver_cortex = "tixds510cortexM0.xml"
-    driver_sec = "tixds510sec_ap.xml"
+    if probe.upper() in ("JLINK", "J-LINK"):
+        conn_name = "SEGGER J-Link Emulator"
+        conn_xml = "connections/segger_j-link_connection.xml"
+        driver_dap = "jlinkcs_dap.xml"
+        driver_cortex = "jlinkcortexm0p.xml"
+        driver_sec = "jlinksec_ap.xml"
+    else:
+        conn_name = "Texas Instruments XDS110 USB Debug Probe"
+        conn_xml = "connections/TIXDS110_Connection.xml"
+        driver_dap = "tixds510cs_dap.xml"
+        driver_cortex = "tixds510cortexM0.xml"
+        driver_sec = "tixds510sec_ap.xml"
 
-    path.write_text(f"""\
+    ccxml_content = f"""\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <configurations XML_version="1.2" id="configurations_0">
     <configuration XML_version="1.2" id="configuration_0">
@@ -194,7 +202,9 @@ def _write_default_ccxml(path: Path, probe: str, chip: str) -> None:
         </connection>
     </configuration>
 </configurations>
-""")
+"""
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(ccxml_content)
 
 
 if __name__ == "__main__":

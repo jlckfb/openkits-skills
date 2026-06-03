@@ -77,7 +77,7 @@ def _generate_makefile(ticlang_dir: Path, proj: Path, config: dict) -> None:
     startup_dst = proj / info["startup"]
     if startup_src.exists() and not startup_dst.exists():
         shutil.copy2(startup_src, startup_dst)
-    if startup_dst.exists():
+    if startup_dst.exists() and info["startup"] not in c_files:
         c_files.append(info["startup"])
 
     # Copy device_linker.cmd (try example dir first, then SDK linker_files)
@@ -115,7 +115,6 @@ NAME    = {proj.name}
 all: $(NAME).out
 
 $(NAME).out: $(OBJECTS)
-\t@echo linking $@
 \t$(LNK) $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
 """
@@ -126,7 +125,9 @@ $(NAME).out: $(OBJECTS)
         makefile += f"\t$(CC) $(CFLAGS) -c {src_path} -o $@\n\n"
 
     makefile += "clean:\n\trm -f $(OBJECTS) $(NAME).out $(NAME).map\n"
-    (ticlang_dir / "makefile").write_text(makefile, encoding="utf-8")
+    makefile_path = ticlang_dir / "makefile"
+    with open(makefile_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(makefile)
 
 
 def main(
@@ -203,7 +204,8 @@ def main(
                 vector_pattern = r"(TIMA1_IRQHandler,\s*\n\s*)0,\s*// Index 28"
                 content = re.sub(vector_pattern, r"\1UART7_IRQHandler,  // Index 28 (UART7)", content)
                 if "UART7_IRQHandler" in content:
-                    startup_file.write_text(content, encoding="utf-8")
+                    with open(startup_file, 'w', encoding='utf-8', newline='\n') as f:
+                        f.write(content)
                     print("[patch] added UART7_IRQHandler to startup file")
 
     # Step 2: Ensure ticlang/ and makefile exist (SysConfig may create ticlang/ but no makefile)

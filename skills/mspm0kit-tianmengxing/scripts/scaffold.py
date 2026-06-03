@@ -67,7 +67,8 @@ def _clean_project(out: Path) -> None:
                          f'ticlang/startup_{STARTUP_PATTERN}_ticlang.c', updated)
 
         if updated != content:
-            mk.write_text(updated, encoding="utf-8")
+            with open(mk, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(updated)
             print(f"[makefile] cleaned {mk.relative_to(out)}")
 
 
@@ -108,7 +109,9 @@ def _write_projectspec(out: Path, project_name: str, example_name: str) -> None:
         {src_files}
     </project>
 </projectSpec>'''
-    (out / f"{project_name}.projectspec").write_text(spec, encoding="utf-8")
+    pspec_path = out / f"{project_name}.projectspec"
+    with open(pspec_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(spec)
 
 
 def main(
@@ -167,7 +170,10 @@ def main(
                 dst_file = out / f"{project_name}.syscfg"
             else:
                 dst_file = out / item.name.replace(sdk_example, project_name)
-            dst_file.write_text(content, encoding="utf-8")
+            # Normalize to LF (prevents CRLF edit_file matching failures on Windows)
+            fixed = content.replace('\r\n', '\n')
+            with open(dst_file, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(fixed)
         elif item.suffix == ".c":
             if item.stem == "main":
                 shutil.copy2(item, out / "main.c")
@@ -215,7 +221,9 @@ def main(
             content = re.sub(
                 r'title=".*?"', f'title="{project_name}"', content
             )
-            (out / f"{project_name}.projectspec").write_text(content, encoding="utf-8")
+            pspec_path = out / f"{project_name}.projectspec"
+            with open(pspec_path, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(content)
     else:
         # Generate minimal .projectspec for skill-bundled examples
         _write_projectspec(out, project_name, sdk_example)

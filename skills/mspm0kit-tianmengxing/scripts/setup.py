@@ -82,9 +82,9 @@ def write_config(config: dict) -> Path:
             config = merged
         except (json.JSONDecodeError, OSError):
             pass
-    config_path.write_text(
-        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    config_json = json.dumps(config, indent=2, ensure_ascii=False)
+    with open(config_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(config_json)
     return config_path
 
 

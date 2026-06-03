@@ -84,7 +84,8 @@ def main(project_dir: str) -> int:
         updated = re.sub(r'-I\.\./keil\s*', '', updated)
 
         if updated != content:
-            mk.write_text(updated, encoding="utf-8")
+            with open(mk, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(updated)
             print(f"[mk] cleaned {mk.name}: removed IAR/Keil references")
             fixed += 1
 

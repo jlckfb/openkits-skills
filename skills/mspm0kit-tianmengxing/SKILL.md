@@ -8,7 +8,7 @@ requires: [mspm0-ccs]
 
 **Board**: Tianmengxing MSPM0G3507 development board (LQFP-64)
 **Toolchain**: CCS Theia + TI Arm Clang + SysConfig + DriverLib
-**SDK**: MSPM0 SDK 2.10.00.04
+**SDK**: MSPM0 SDK（以 `config.json` 中实际配置为准，默认 2.05.01.00；文档声明的版本可能与实际安装不同，请以 `sdk_root` 路径为准）
 
 ## Workflow
 
@@ -39,10 +39,16 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 1. Ask: "是否允许我读取 SDK 目录（`<sdk_root>`）来复制例程模板？"
 2. On approval, run scaffold using the **full path** to the skill's scripts directory:
    ```
-   python C:/Users/<user>/.claude/skills/mspm0kit-tianmengxing/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
+   python <skill_install_dir>/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
    ```
    The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
-   To locate the scripts: `find ~ -path "*/mspm0kit-tianmengxing/scripts/scaffold.py" 2>/dev/null`
+
+   **Skill install path varies by agent platform** — locate it first:
+   - Claude Code (Linux/macOS): `~/.claude/skills/mspm0kit-tianmengxing/scripts/`
+   - Claude Code (Windows): `C:/Users/<user>/.claude/skills/mspm0kit-tianmengxing/scripts/`
+   - Reasonix (Windows): `C:/Users/<user>/.reasonix/skills/mspm0kit-tianmengxing/scripts/`
+   - Codex/其他 Agent: `C:/Users/<user>/.agents/skills/mspm0kit-tianmengxing/scripts/`
+   - 通用查找: `ls ~/.claude/skills/mspm0kit-tianmengxing/scripts/` 或 `ls ~/.reasonix/skills/mspm0kit-tianmengxing/scripts/` 或 `ls ~/.agents/skills/mspm0kit-tianmengxing/scripts/`
 3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` and `.c` file.
 4. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
 5. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
@@ -182,7 +188,7 @@ PB0–PB5, PB12, PB13, PB15–PB20, PB23–PB25, PB27
 | `serial_console.py -p <port> -b <baud>` | Serial monitor |
 | `cleanup.py <project_dir>` | **MANDATORY before build** |
 
-> All scripts are in the skill install directory: `~/.claude/skills/mspm0kit-tianmengxing/scripts/`. Use full path when calling.
+> All scripts are in the skill install directory（路径因 Agent 平台而异，见 Step 3 中的路径列表）。Use full path when calling.
 
 ## Clock Configuration
 
