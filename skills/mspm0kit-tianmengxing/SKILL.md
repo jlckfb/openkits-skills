@@ -178,7 +178,28 @@ PB0–PB5, PB12, PB13, PB15–PB20, PB23–PB25, PB27
 
 ## Path Configuration
 
-`config.json` 存储工具链路径。流程：先直接运行脚本 → 失败了再问用户路径 → 路径不存在时问是否自动搜索 → 用户同意后搜索 C/D/E 盘常见位置（`D:/TI/CCS/ccs`, `mspm0_sdk*` 等）→ 找到后写入 config.json → 重试。
+`config.json` 存储工具链路径，位于 skill 根目录（如 `~/.claude/skills/mspm0kit-tianmengxing/config.json`）。
+
+**Agent 首次使用（推荐）** — 一条命令自动扫描：
+
+```bash
+python <skill_dir>/scripts/setup.py --auto-detect --probe JLink
+```
+
+`--auto-detect` 会自动搜索 C/D/E 盘的 CCS、SDK（选最新版）、SysConfig CLI、编译器、J-Link，无需用户介入。
+Agent 也可以先尝试直接 scaffold/build，失败后再跑 setup。
+
+**手动指定路径**：
+
+```bash
+python <skill_dir>/scripts/setup.py --accept-defaults --ccs-root D:/TI/CCS/ccs --sdk-root D:/TI/CCS/mspm0_sdk_2_05_01_00 --probe JLink
+```
+
+**用户交互模式**（人工在终端运行）：
+
+```bash
+python <skill_dir>/scripts/setup.py
+```
 
 ## Tools
 
