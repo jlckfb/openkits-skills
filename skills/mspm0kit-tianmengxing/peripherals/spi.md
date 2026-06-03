@@ -61,27 +61,34 @@ rxData = DL_SPI_receiveDataBlocking8(SPI_0_INST);
 
 ## SPI LCD Driver Notes (ST7789V / 兼容屏)
 
-### CS 必须整块持低（CRITICAL）
+### CS 必须整块持低 — 适用于所有多字节命令（CRITICAL）
 
-ST7789V 的 Memory Write（0x2C）命令要求 **CS 在整个像素数据传输期间保持低电平**。逐字节切换 CS 会中止写入事务，导致屏幕无内容显示。
+ST7789V 要求 **CS 在命令的全部参数字节期间保持低电平**。这不只是 Memory Write（0x2C），还包括 **CASET（0x2A）、RASET（0x2B）** 等所有多字节参数命令。逐字节翻转 CS 会截断参数，导致窗口设置无效。
 
 ```c
-/* 错误：每字节切换 CS */
-for (int i = 0; i < len; i++) {
-    lcd_cs_low();
-    DL_SPI_transmitDataBlocking8(SPI1, data[i]);
-    lcd_cs_high();  // ❌ 中止事务
-}
+/* ❌ 错误：每字节独立翻转 CS（CASET/RASET 参数被截断，窗口偏移无效） */
+lcd_write_cmd(0x2A);          // CS↓ CS↑
+lcd_write_data16(x_start);     // CS↓ 发 2 字节 CS↑
+lcd_write_data16(x_end);       // CS↓ 发 2 字节 CS↑  ← ST7789V 已截断，参数丢失
 
-/* 正确：整块持低 */
-lcd_cs_low();
-lcd_dc_data();
-for (int i = 0; i < len; i++) {
-    DL_SPI_transmitDataBlocking8(SPI1, data[i]);
+/* ✅ 正确：CASET/RASET 整块持低 */
+void lcd_set_window(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+    uint16_t xe = x + w - 1;
+    uint16_t ye = y + h - 1;
+    lcd_cs_low();
+    lcd_dc_cmd();
+    DL_SPI_transmitDataBlocking8(SPI1, 0x2A);       // CASET
+    lcd_dc_data();
+    DL_SPI_transmitDataBlocking8(SPI1, x >> 8);      // 4 个参数字节
+    DL_SPI_transmitDataBlocking8(SPI1, x & 0xFF);    // CS 全程保持低
+    DL_SPI_transmitDataBlocking8(SPI1, xe >> 8);
+    DL_SPI_transmitDataBlocking8(SPI1, xe & 0xFF);
+    lcd_cs_high();
+    // RASET 同样模式...
 }
-while (DL_SPI_isBusy(SPI1));  // 等移位寄存器完成
-lcd_cs_high();                 // ✅ 所有数据发完再拉高
 ```
+
+> **铁律**：任何需要多字节参数的命令（CASET、RASET、RAMWR），CS 必须在全部参数字节之间保持低电平。推荐分层设计：底层 `lcd_spi_cmd()`/`lcd_spi_data()` 只发数据不管 CS，上层命令函数统一管理 CS 翻转。
 
 ### CS 拉高前必须等待 SPI 发送完成
 
@@ -93,6 +100,41 @@ void lcd_cs_high(void) {
     while (DL_SPI_isBusy(SPI_LCD_INST));  // 等移位寄存器清空
     DL_GPIO_setPins(LCD_CS_PORT, LCD_CS_PIN);
 }
+```
+
+### SPI 帧格式 vs 传输 API — 必须匹配（CRITICAL）
+
+SysConfig 中 SPI 帧格式和代码中的传输 API 必须一致。不匹配会导致花屏/乱码：
+
+| SysConfig `dataSize` | 必须使用的 API | 不可用 |
+|---------------------|---------------|--------|
+| `DL_SPI_DATA_SIZE_8` | `DL_SPI_transmitDataBlocking8()` / `DL_SPI_fillTXFIFO8()` | ~~`DL_SPI_transmitDataBlocking16()`~~ |
+| `DL_SPI_DATA_SIZE_16` | `DL_SPI_transmitDataBlocking16()` | ~~`DL_SPI_transmitDataBlocking8()`~~ |
+
+> 8-bit 帧格式下调用 16-bit API 会产生未定义行为（屏幕花屏/乱码）。
+
+### SPI API 选择指南
+
+| API | 适用场景 | 行为 |
+|-----|---------|------|
+| `DL_SPI_transmitDataBlocking8(SPI, data)` | 单字节发送（LCD 命令/参数） | 阻塞等待一字节发送完成 |
+| `DL_SPI_fillTXFIFO8(SPI, &buf, len)` | 批量数据（像素填充） | 填充 FIFO，需配合 `isBusy()` 检查完成 |
+
+> LCD 驱动推荐：命令/参数用 `transmitDataBlocking8`（简单可靠），像素数据用 `fillTXFIFO8`（性能更好）。
+
+- 通过 SPI1 访问，CS 为 PB6 普通 GPIO
+- 与 LCD 共享 SPI 总线，同一时间只能操作一个设备（通过各自的 CS 切换）
+- W25Q64 容量 8MB，比天巧星的 W25Q128 (16MB) 小一半
+
+### SysConfig SPI 属性名（SDK 版本差异）
+
+SDK 2.10 使用旧命名 `mosiPin` / `misoPin`，**不是** `picoPin` / `pociPin`：
+
+```js
+// ✅ SDK 2.10 正确写法
+SPI1.peripheral.mosiPin.$assign = "PB8";   // 不是 picoPin
+SPI1.peripheral.misoPin.$assign = "PB7";   // 不是 pociPin
+SPI1.peripheral.sclkPin.$assign = "PB9";
 ```
 
 - 通过 SPI1 访问，CS 为 PB6 普通 GPIO

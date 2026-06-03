@@ -166,6 +166,15 @@ def main(
         if item.suffix == ".syscfg":
             content = item.read_text(encoding="utf-8", errors="replace")
             content = re.sub(r'--package\s+"LQFP-100\(PZ\)"', '--package "LQFP-64(PM)"', content)
+            # Fix Board module: {} → () to load full pin definitions (PB22 etc.)
+            # Without this, Upper-segment pins disappear from PWM/UART pin lists
+            content = re.sub(
+                r'scripting\.addModule\("/ti/driverlib/Board",\s*\{\},\s*false\)',
+                'scripting.addModule("/ti/driverlib/Board")',
+                content,
+            )
+            # Fix SDK 2.10 GPIO old syntax: remove GPIO1.port = "PORTx" (conflicts with assignedPort)
+            content = re.sub(r'^\s*GPIO\d+\.port\s*=\s*"[^"]*";\s*$', '', content, flags=re.MULTILINE)
             if item.stem == "example":
                 dst_file = out / f"{project_name}.syscfg"
             else:

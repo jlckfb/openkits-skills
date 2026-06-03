@@ -28,13 +28,41 @@ TIMER1.timerPeriod = "10 ms";   // LOAD = 327
 
 ## CRITICAL: Timer/PWM Must Be Started Manually
 
-`SYSCFG_DL_init()` **不会自动启动定时器**。初始化后必须显式调用：
+**`startTimer = true` in SysConfig does NOT work reliably.** The generated `ti_msp_dl_config.c` may still output:
+```c
+.startTimer = DL_TIMER_STOP,
+```
+even when `.syscfg` has `timerStartTimer = true`. `SYSCFG_DL_init()` **不会自动启动定时器**。初始化后必须显式调用：
 
 ```c
 SYSCFG_DL_init();
 DL_TimerG_startCounter(PWM_LED_INST);       // PWM 定时器
 DL_TimerA_startCounter(TIMER_BREATHE_INST); // 周期中断定时器
 NVIC_EnableIRQ(TIMER_BREATHE_INST_INT_IRQN); // 中断也要手动启用
+```
+
+> **永远不要假设 `SYSCFG_DL_init()` 启动了定时器。每次使用 Timer/PWM 时，都在 `main()` 中显式调用 `startCounter()`。**
+
+## CRITICAL: Timer Interrupt Handler Pattern
+
+中断 ISR 必须先用 `DL_TimerG_getPendingInterrupt()` 读 pending 状态，再按 `DL_TIMER_IIDX_ZERO` 分发。**不要直接调用清除函数而不先读状态**：
+
+```c
+void TIMG0_IRQHandler(void) {
+    switch (DL_TimerG_getPendingInterrupt(TIMER_TICK_INST)) {
+        case DL_TIMER_IIDX_ZERO:
+            // 业务逻辑
+            break;
+        default:
+            break;
+    }
+}
+```
+
+清除中断的标准 API（**不是** `DL_TimerG_clearZeroInterruptStatus`，那个不存在）：
+
+```c
+DL_TimerG_clearInterruptStatus(TIMER_TICK_INST, DL_TIMER_INTERRUPT_ZERO_EVENT);
 ```
 
 ## CRITICAL: Timer Bit-Width Limits

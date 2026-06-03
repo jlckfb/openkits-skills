@@ -20,6 +20,42 @@ Tianmengxing: PB6/PB7 occupied by SPI Flash → use TIMG0 or TIMG2 on free pins.
 | TIMG8 | Free | General PWM, QEI |
 | TIMG12 | Free | General PWM (on free pins) |
 
+## Timer → Pin Mapping (CRITICAL)
+
+板载 LED 及常用引脚的 PWM 定时器通道映射（LQFP-64）。PB22 **可以用硬件 PWM**（TIMG8 CCP1），不是只能做 GPIO：
+
+| Pin | Timer Channel | SysConfig `ccpPin` | 备注 |
+|-----|--------------|-------------------|------|
+| **PB22** | **TIMG8 CCP1** | `PWM1.peripheral.ccp1Pin.$assign = "PB22"` | 板载 LED 硬件 PWM ✅ |
+| PB26 | TIMG8 CCP0 | `ccp0Pin.$assign = "PB26"` | LCD 背光 |
+| PA3 | TIMG0 CCP0 | `ccp0Pin.$assign = "PA3"` | 自由引脚 |
+| PA4 | TIMG0 CCP1 | `ccp1Pin.$assign = "PA4"` | 自由引脚 |
+| PB0 | TIMG6 CCP0 | `ccp0Pin.$assign = "PB0"` | 自由引脚 |
+| PB2 | TIMG6 CCP1 | `ccp1Pin.$assign = "PB2"` | 自由引脚 |
+| PB4 | TIMG8 CCP0 | `ccp0Pin.$assign = "PB4"` | 自由引脚 |
+
+> **查找方法**：在 SysConfig 设备数据中搜索 `reverseMuxes`：
+> `D:\TI\CCS\ccs\utils\sysconfig_<ver>\dist\deviceData\MSPM0G350X\MSPM0G350X.json`
+
+### PB22 硬件 PWM 完整 SysConfig
+
+```js
+const PWM  = scripting.addModule("/ti/driverlib/PWM", {}, false);
+const PWM1 = PWM.addInstance();
+
+PWM1.$name                      = "PWM_LED";
+PWM1.pwmMode                    = "EDGE_ALIGN_UP";
+PWM1.ccIndex                    = [1];              // CCP1 (PB22)
+PWM1.clockPrescale              = 80;
+PWM1.timerCount                 = 5000;             // 1 kHz @ 80 MHz
+PWM1.timerStartTimer            = true;
+PWM1.peripheral.$assign         = "TIMG8";          // ⬅ 关键：PB22 用 TIMG8
+PWM1.peripheral.ccp1Pin.$assign = "PB22";           // ⬅ CCP1 非 CCP0
+PWM1.PWM_CHANNEL_1.dutyCycle    = 50;
+```
+
+> **Board 模块必须无参调用**：`scripting.addModule("/ti/driverlib/Board")`（不要加 `{}, false`），否则 PB22 等 Upper 段引脚不会出现在 PWM 引脚选择列表中。scaffold.py 已自动修正此问题。
+
 ## PWM Config Pattern (edge-aligned, 1 kHz on free pin)
 
 ```
