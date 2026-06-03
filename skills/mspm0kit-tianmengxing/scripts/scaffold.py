@@ -251,3 +251,6 @@ if __name__ == "__main__":
         output_dir=args.output,
     )
     print(f"Project created: {result}")
+    print(f"  Source:    {result}\\{args.project_name}.c")
+    print(f"  SysConfig: {result}\\{args.project_name}.syscfg")
+    print(f"  Projects:  {result}\\{args.project_name}.projectspec")
