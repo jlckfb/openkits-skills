@@ -3,10 +3,29 @@
 and fix IAR/Keil references in makefiles."""
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sys
 from pathlib import Path
+
+
+def _get_chip_startup(project_dir: str) -> str | None:
+    """Derive the expected startup filename from config.json chip field.
+    Returns e.g. 'startup_mspm0g350x_ticlang.c' for MSPM0G3507, or None if unknown."""
+    # Try skill-level config.json first
+    config_path = Path(__file__).resolve().parents[1] / "config.json"
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    chip = config.get("chip", "")
+    if not chip or not chip.upper().startswith("MSPM0G"):
+        return None
+    num = chip[len("MSPM0G"):]
+    family = "mspm0g" + num[:3] + "x"
+    return f"startup_{family}_ticlang.c"
 
 
 def main(project_dir: str) -> int:
@@ -44,9 +63,15 @@ def main(project_dir: str) -> int:
             fixed += 1
 
     # 3. Save startup files from ticlang/ before removing the directory
+    #    Only copy the startup file matching the target chip (e.g. G3507 → G350x).
+    #    Copying both G350x and G351x causes "interruptVectors redefined" linker error.
     ticlang = proj / "ticlang"
     if ticlang.is_dir():
+        expected = _get_chip_startup(project_dir)
         for sf in ticlang.glob("startup_*.c"):
+            if expected and sf.name != expected:
+                print(f"[startup] skipped {sf.name} (chip mismatch, expected {expected})")
+                continue
             dest = proj / sf.name
             if not dest.exists():
                 shutil.copy2(sf, dest)

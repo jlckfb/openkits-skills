@@ -213,8 +213,8 @@ def main(
     # Step 2: Ensure ticlang/ and makefile exist (SysConfig may create ticlang/ but no makefile)
     ticlang_dir = proj / "ticlang"
     ticlang_dir.mkdir(exist_ok=True)
-    if not (ticlang_dir / "makefile").exists():
-        _generate_makefile(ticlang_dir, proj, config)
+    # Always regenerate makefile — source files may have changed (added/removed startup, etc.)
+    _generate_makefile(ticlang_dir, proj, config)
 
     if _interactive:
         response = input(f"\nRun gmake? (y/n)\n  Dir: {ticlang_dir}\n")

@@ -96,7 +96,7 @@ if __name__ == "__main__":
                    help="Skip prompts, use all defaults")
     p.add_argument("--ccs-root", default=None)
     p.add_argument("--sdk-root", default=None)
-    p.add_argument("--probe", default=None, choices=["XDS110", "JLink"])
+    p.add_argument("--probe", default=None, choices=["XDS110", "JLink", "JLINK"])
     args = p.parse_args()
 
     if args.accept_defaults:
