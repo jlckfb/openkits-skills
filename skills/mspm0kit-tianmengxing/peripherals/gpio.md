@@ -6,6 +6,28 @@
 
 > **SDK 版本差异**：不同 SDK 版本的模板默认引脚可能不同。SDK 2.05 使用 PB16（USER_TEST），旧版本可能使用 PB14。以实际 `config.json` 的 `sdk_root` 指向的 SDK 版本为准。
 
+### ⚠️ SDK 2.10 模板问题：GPIO 语法新旧混用
+
+SDK 2.10 的 `gpio_toggle_output.syscfg` 模板**混用了新旧两种 SysConfig GPIO 语法**，直接使用可能导致 SysConfig 行为不确定：
+
+```js
+// ❌ 模板原始内容（不要直接用）
+GPIO1.port                          = "PORTB";          // 旧语法：顶层 port 属性
+GPIO1.associatedPins.create(4);
+GPIO1.associatedPins[0].$name       = "USER_LED_1";
+GPIO1.associatedPins[0].assignedPin = "22";             // 旧写法：缺 assignedPort/initialValue/pin.$assign
+GPIO1.associatedPins[1].$name       = "USER_LED_2";
+GPIO1.associatedPins[1].assignedPin = "26";
+GPIO1.associatedPins[2].$name       = "USER_LED_3";
+GPIO1.associatedPins[2].assignedPin = "27";
+GPIO1.associatedPins[3].$name        = "USER_TEST";
+GPIO1.associatedPins[3].pin.$assign  = "PB16";          // 新语法：这里又用了 pin.$assign
+```
+
+**修正方法**：统一使用新语法（参考下方 SysConfig JS Snippet），每个 pin 都包含完整的 `assignedPort` + `assignedPin` + `pin.$assign` + `initialValue`，**删除** `GPIO1.port` 行。
+
+> SDK 2.05 及更早版本的模板不受此问题影响（统一使用旧语法）。
+
 ## Pin Mapping (LP → Tianmengxing)
 
 | SDK Pin | SDK Name | Tianmengxing | Action |
