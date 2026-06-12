@@ -153,32 +153,29 @@ def build_config(
     ccs_root: str | None = None,
     sdk_root: str | None = None,
     probe: str | None = None,
-    auto_detect: bool = False,
 ) -> dict:
-    """Build config dict. If auto_detect=True, scan filesystem for all paths."""
+    """Build config dict. Always validates paths — auto-searches when defaults don't exist."""
 
-    if auto_detect:
-        print("[auto-detect] scanning for toolchain paths...")
-        ccs = ccs_root or _find_ccs()
-        sdk = sdk_root or _find_sdk(ccs)
-        print(f"[auto-detect] CCS  : {ccs}")
-        print(f"[auto-detect] SDK  : {sdk}")
-    else:
-        ccs = ccs_root or DEFAULTS["ccs_root"]
-        sdk = sdk_root or DEFAULTS["sdk_root"]
-
-    # Validate CCS root
+    # CCS: use provided, validate, or search
+    ccs = ccs_root or DEFAULTS["ccs_root"]
     if not _is_dir(ccs):
-        print(f"[warn] CCS root not found: {ccs} — using default, some paths may be wrong")
+        print(f"[warn] CCS not found: {ccs} — auto-searching...")
+        ccs = _find_ccs()
+    if not _is_dir(ccs):
         ccs = DEFAULTS["ccs_root"]
+        print(f"[warn] CCS fallback to default: {ccs}")
 
-    # Validate SDK root — if not found and not auto_detect (which already searched), fallback
+    # SDK: use provided, validate, or search (prefer newest)
+    sdk = sdk_root or DEFAULTS["sdk_root"]
     if not _is_dir(sdk):
-        if not auto_detect:
-            print(f"[warn] SDK root not found: {sdk} — searching...")
-            sdk = _find_sdk(ccs)
-        if not _is_dir(sdk):
-            sdk = DEFAULTS["sdk_root"]
+        print(f"[warn] SDK not found: {sdk} — auto-searching...")
+        sdk = _find_sdk(ccs)
+    if not _is_dir(sdk):
+        sdk = DEFAULTS["sdk_root"]
+        print(f"[warn] SDK fallback to default: {sdk}")
+
+    print(f"[setup] CCS  : {ccs}")
+    print(f"[setup] SDK  : {sdk}")
 
     prob = probe or DEFAULTS["probe"]
 
@@ -244,11 +241,11 @@ if __name__ == "__main__":
     )
     p.add_argument(
         "--auto-detect", action="store_true",
-        help="Scan filesystem for CCS/SDK/SysConfig/compiler/JLink automatically"
+        help="(默认行为) 自动搜索工具链，路径不存在时自动扫描"
     )
     p.add_argument(
         "--accept-defaults", action="store_true",
-        help="Skip prompts, use defaults (plus any --ccs-root/--sdk-root/--probe overrides)"
+        help="非交互模式，自动验证路径；不存在则搜索"
     )
     p.add_argument("--ccs-root", default=None, help="CCS install directory")
     p.add_argument("--sdk-root", default=None, help="MSPM0 SDK directory")
@@ -256,30 +253,22 @@ if __name__ == "__main__":
                    help="Debug probe type")
     args = p.parse_args()
 
-    if args.auto_detect:
+    if args.accept_defaults or args.auto_detect:
+        # Non-interactive mode — always validates and auto-searches if paths don't exist
         config = build_config(
             ccs_root=args.ccs_root,
             sdk_root=args.sdk_root,
             probe=args.probe,
-            auto_detect=True,
-        )
-    elif args.accept_defaults:
-        config = build_config(
-            ccs_root=args.ccs_root,
-            sdk_root=args.sdk_root,
-            probe=args.probe,
-            auto_detect=False,
         )
     else:
         try:
             config = _interactive_config()
         except (EOFError, OSError):
-            print("[非交互模式] 使用默认配置（加 --auto-detect 可自动扫描）")
+            print("[非交互模式] 自动搜索工具链路径...")
             config = build_config(
                 ccs_root=args.ccs_root,
                 sdk_root=args.sdk_root,
                 probe=args.probe,
-                auto_detect=False,
             )
 
     path = write_config(config)

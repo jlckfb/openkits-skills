@@ -38,6 +38,17 @@ int16_t delta = HW_Encoder_GetDelta();  // read and clear accumulator
 HW_Encoder_Disable();     // stop counting
 ```
 
+## Direction Convention
+
+`HW_Encoder_GetDelta()` 返回值方向约定：
+
+| 旋转方向 | delta 符号 | UI 典型映射 |
+|---------|-----------|-----------|
+| 顺时针（从顶部看） | **正 (+)** | 菜单下移 / 数值增加 |
+| 逆时针（从顶部看） | **负 (−)** | 菜单上移 / 数值减少 |
+
+> **注意**：不同编码器的 A/B 相序可能相反。如果实际方向和 UI 显示方向不一致，取反 delta 即可：`delta = -HW_Encoder_GetDelta()`。优先和用户确认期望的方向映射。
+
 ## Dependencies
 
 - `mid_timer.h` (5ms system tick for encoder polling)

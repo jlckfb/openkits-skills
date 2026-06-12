@@ -93,16 +93,21 @@ PB0–PB5, PB10–PB16, PB19, PB20, PB24, PB25, PB28
 
 ## Naming Rules
 
-1. **GPIO instance `$name` and pin `$name` MUST NOT be equal** — SysConfig treats them as globally unique identifiers.
+1. **`$name` 必须全局唯一 — 包括跨实例的引脚名**。SysConfig 把所有实例和引脚的 `$name` 视为全局命名空间。两个不同 GPIO 实例中有同名引脚会报 `Duplicate name` 错误。
+   - WRONG: `GPIO_ENC` 和 `GPIO_BTN` 都有 `$name = "PIN"` → `Duplicate name: 'PIN'`
+   - CORRECT: 分别命名为 `"SW"` 和 `"BTN1"`（或其他互不重复的名字）
+
+2. **GPIO instance `$name` and pin `$name` MUST NOT be equal** — 同一实例内不要同名。
    - WRONG: instance=`"LED"`, pin=`"LED"` → Duplicate name error
-   - CORRECT: instance=`"LED"`, pin=`"PIN"` or `"OUT"`
+   - CORRECT: instance=`"LED"`, pin=`"PIN"` 或 `"OUT"`
 
-2. **Generated macro format**:
-   - Port macro: `<INSTANCE>_PORT` → e.g. `LED_PORT` = `GPIOB`
-   - Pin macro: `<INSTANCE>_<PIN>_PIN` → e.g. `LED_PIN_PIN` = `DL_GPIO_PIN_22`
-   - IOMUX macro: `<INSTANCE>_<PIN>_IOMUX` → e.g. `LED_PIN_IOMUX` = `IOMUX_PINCM50`
+3. **Generated macro format — 同端口引脚共享 PORT 宏**（以 instance=`"GPIO_LED"`, pin=`"LED_PIN"` 为例）:
+   - 所有同端口引脚共享一个 `<INSTANCE>_PORT` 宏（如 `LCD_PORT` 而非 `LCD_CS_PORT`）
+   - 引脚宏：`<INSTANCE>_<PIN>_PIN` → e.g. `GPIO_LED_LED_PIN_PIN` = `DL_GPIO_PIN_22`
+   - IOMUX 宏：`<INSTANCE>_<PIN>_IOMUX` → e.g. `GPIO_LED_LED_PIN_IOMUX` = `IOMUX_PINCM50`
+   - 跨端口时：每个端口有独立的 `<INSTANCE>_<PIN>_PORT` 宏
 
-3. **Always run SysConfig first**, then `grep` the generated `ti_msp_dl_config.h` to **verify** actual macro names AND port values before writing code.
+4. **Always run SysConfig first**, then `grep` the generated `ti_msp_dl_config.h` to **verify** actual macro names AND port values before writing code.
 
 ## SysConfig JS Snippet
 

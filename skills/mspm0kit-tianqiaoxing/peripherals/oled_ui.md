@@ -92,6 +92,31 @@ void OLED_UI_CreateWindow(MenuWindow *win);
 
 **Key rule**: ASCII text (English, numbers, symbols) MUST use `OLED_*_HALF` fonts. Chinese text uses `OLED_*_FULL` fonts. Using a Chinese font for ASCII strings renders nothing — the font lookup fails because ASCII chars have no bitmap in full-width font arrays.
 
+### ⚠️ Font Selection Guide for 128×64 OLED
+
+**铁律：128×64 OLED 默认使用 6×8（`OLED_UI_FONT_8`），禁止用 8×16 作为正文字体。**
+
+| 字体 | 单字高度 | 128×64 屏可见行数 | 适用场景 |
+|------|---------|------------------|---------|
+| `OLED_6X8` (FONT_8) | 8px | **8 行** | ✅ 正文、标签、状态值（默认） |
+| `OLED_7X12` (FONT_12) | 12px | 5 行 | 需要稍大文字的次要标题 |
+| `OLED_8X16` (FONT_16) | 16px | **4 行** | ⚠️ 仅标题（一个字符占屏幕 25%） |
+| `OLED_10X20` (FONT_20) | 20px | 3 行 | ❌ 128×64 屏幕基本不用 |
+
+> 典型错误：全部使用 `OLED_8X16_HALF` → 字体巨大、丑陋、信息密度极低。"CNT:+0" 这类小字体才是正确的。
+
+### Recommended Layout (128×64)
+
+```c
+// 标题区（可以用 8×16，1 行）
+OLED_ShowString(0, 0, "STATUS", OLED_8X16);
+
+// 内容区（必须 6×8，最多 7 行）
+OLED_ShowString(0, 20, "BTN1: PRESSED",  OLED_6X8);
+OLED_ShowString(0, 32, "BTN2: RELEASED", OLED_6X8);
+OLED_ShowString(0, 44, "CNT: +5",        OLED_6X8);
+```
+
 Key timing notes:
 - `OLED_UI_InterruptHandler()` runs at 20ms intervals (configurable)
 - Button/key events must last ≥ 20ms to be detected — use a hold counter of 4+ ticks (20ms at 5ms tick)
