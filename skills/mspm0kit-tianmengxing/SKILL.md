@@ -91,6 +91,8 @@ flash.py 根据 config.json 的 `probe` 字段自动选择烧录方式：
 - `probe = "XDS110"`：用 DSLite 烧录
 - `probe = "JLINK"`：用 tiarmobjcopy 转 hex + JLink.exe 烧录（DSLite 对 J-Link 支持不稳定，会报 block verification error）
 
+> ⚠️ **XDS110 首次使用**：如果 DSLite 报 `Error initializing emulator: (Error -260)`，检查 Windows 设备管理器中的 XDS110 驱动状态。若显示 "Unknown" 黄色感叹号，驱动未安装。运行 `<ccs_root>/ccs_base/emulation/windows/xds110_drivers/DPInst64.exe` 安装驱动（需管理员权限）。安装后板载 XDS110 重新枚举为 Serial Port 和 Data Port 即正常。
+
 ## Core Rules
 
 ### R0: 3-Layer Embedded Architecture

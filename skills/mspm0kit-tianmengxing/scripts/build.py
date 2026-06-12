@@ -153,7 +153,7 @@ def main(
     syscfg = syscfg_files[0]
 
     sysconfig_cli = config.get("sysconfig_cli", "sysconfig_cli.bat")
-    gmake = config.get("gmake", "gmake")
+    gmake = config.get("gmake") or str(Path(config.get("ccs_root", "")) / "utils/bin/gmake.exe") or "gmake"
     sdk_root = config.get("sdk_root", "")
     if not Path(sysconfig_cli).exists():
         return False, (
@@ -177,7 +177,7 @@ def main(
         "--product", product_json, "--output", str(proj), str(syscfg),
     ]
     print(f"[SysConfig] {' '.join(sysconfig_cmd)}")
-    result = subprocess.run(sysconfig_cmd, capture_output=True, text=True, cwd=str(proj))
+    result = subprocess.run(sysconfig_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(proj))
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
 
@@ -223,7 +223,7 @@ def main(
 
     gmake_cmd = [gmake, "-C", str(ticlang_dir)]
     print(f"[gmake] {' '.join(gmake_cmd)}")
-    result = subprocess.run(gmake_cmd, capture_output=True, text=True, cwd=str(ticlang_dir))
+    result = subprocess.run(gmake_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(ticlang_dir))
 
     if result.returncode != 0:
         return False, f"gmake failed:\n{result.stderr}\n{result.stdout}"

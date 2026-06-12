@@ -84,7 +84,7 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
     hex_file = out_file.with_suffix(".hex")
     objcopy_cmd = [str(objcopy), "-O", "ihex", str(out_file), str(hex_file)]
     print(f"[objcopy] {' '.join(objcopy_cmd)}")
-    r = subprocess.run(objcopy_cmd, capture_output=True, text=True)
+    r = subprocess.run(objcopy_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         print(f"objcopy failed:\n{r.stderr}\n{r.stdout}")
         sys.exit(1)
@@ -109,7 +109,7 @@ def _flash_jlink(out_file: Path, chip: str, config: dict) -> None:
     # 3. Flash — capture output to detect JLink failures even when exit code is 0
     jlink_cmd = [jlink, "-CommandFile", str(jlink_script)]
     print(f"[JLink] {' '.join(jlink_cmd)}")
-    r = subprocess.run(jlink_cmd, capture_output=True, text=True, cwd=str(out_file.parent))
+    r = subprocess.run(jlink_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(out_file.parent))
     output = r.stdout + r.stderr
     print(output)
 
@@ -152,7 +152,7 @@ def _flash_dslite(out_file: Path, proj: Path, chip: str, config: dict) -> None:
             f.unlink()
             print(f"[cache] removed: {f}")
 
-    dslite = config.get("dslite", "DSLite.exe")
+    dslite = config.get("dslite") or str(Path(config.get("ccs_root", "")) / "ccs_base/DebugServer/bin/DSLite.exe") or "DSLite.exe"
     cmd = [dslite, "flash", "-c", str(ccxml_path), str(out_file)]
     print(f"Flashing: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=False, text=True)
