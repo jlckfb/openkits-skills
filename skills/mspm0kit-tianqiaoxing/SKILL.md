@@ -46,9 +46,14 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
    ```
    The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
    To locate the scripts: `find ~ -path "*/mspm0kit-tianqiaoxing/scripts/scaffold.py" 2>/dev/null`
-3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` and `.c` file.
-4. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
-5. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
+3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` first.
+4. **After editing `.syscfg`, BEFORE writing the `.c`, fetch the ground-truth macro names** — never guess them:
+   ```
+   python <skill_dir>/scripts/build.py <project_dir> --sysconfig-only
+   ```
+   This runs SysConfig once and prints every generated macro (`*_PORT`, `*_PIN`, `*_INST`, `*_IIDX`, ...) from `ti_msp_dl_config.h`. Write the `.c` using those EXACT names. This eliminates the first-build failure caused by guessed macros.
+5. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
+6. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
    - If yes → proceed to Step 4 (build + report errors)
    - If no → just print the project path and usage instructions
 
@@ -73,7 +78,7 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
    `--yes` 跳过交互确认。非交互环境下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
 3. If build succeeds: report the `.out` file path and provide the flash command.
-4. On first build failure, read `ti_msp_dl_config.h` to confirm generated macro names — never guess them.
+4. Macro names should already be correct (Step 3 fetched them via `--sysconfig-only` before the `.c` was written). If you skipped that step and hit an undefined-macro error, read `ti_msp_dl_config.h` to confirm the real names — never guess them.
 
 ## Core Rules
 
@@ -181,6 +186,7 @@ All other pins not listed above. The board uses LQFP-64(PM) package.
 |--------|---------|
 | `setup.py` | First-time path configuration |
 | `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
+| `build.py <project_dir> --sysconfig-only` | Run SysConfig only, print generated macros (call BEFORE writing the .c) |
 | `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
 | `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
 | `serial_console.py -p <port> -b <baud>` | Serial monitor |

@@ -16,6 +16,15 @@ import json
 import sys
 from pathlib import Path
 
+# Force UTF-8 on stdout/stderr so the Chinese hints below never raise
+# UnicodeEncodeError on a legacy GBK console or when redirected to a file.
+# errors="replace" guarantees the script never crashes on encoding alone.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 CONFIG_DIR = Path(__file__).resolve().parents[1]
 CHIP = "MSPM0G3507"
 
@@ -209,7 +218,7 @@ def _interactive_config() -> dict:
     ccs = _prompt("CCS install dir", DEFAULTS["ccs_root"])
     sdk = _prompt("MSPM0 SDK dir", DEFAULTS["sdk_root"])
     probe = _prompt("Debug probe (XDS110/JLink)", DEFAULTS["probe"])
-    return build_config(ccs_root=ccs, sdk_root=sdk, probe=probe, auto_detect=False)
+    return build_config(ccs_root=ccs, sdk_root=sdk, probe=probe)
 
 
 def write_config(config: dict) -> Path:

@@ -22,6 +22,44 @@ def _load_config(config_path: str) -> dict:
         return {}
 
 
+# Suffixes of SysConfig-generated peripheral macros the .c usually references.
+# Used to print ground-truth macro names so the agent never guesses them.
+_MACRO_SUFFIXES = (
+    "_PORT", "_PIN", "_IOMUX", "_INST", "_IIDX", "_IDX",
+    "_IRQN", "_INT_IRQN", "_INST_IRQHandler",
+)
+_MACRO_RE = re.compile(
+    r'^#define\s+([A-Z_][A-Z0-9_]*(?:'
+    + "|".join(s for s in _MACRO_SUFFIXES)
+    + r'))\b[ \t]+(.+?)[ \t]*$',
+    re.MULTILINE,
+)
+
+
+def print_generated_macros(proj: Path) -> bool:
+    """Grep ti_msp_dl_config.h and print every peripheral macro (PORT/PIN/INST/...).
+
+    Lets the agent write the .c with ground-truth macro names instead of guessing,
+    eliminating the first-build failure caused by wrong macro names.
+    Returns True if the header existed and was parsed.
+    """
+    header = proj / "ti_msp_dl_config.h"
+    if not header.exists():
+        print(f"[macros] ti_msp_dl_config.h not found in {proj} — run SysConfig first")
+        return False
+    text = header.read_text(encoding="utf-8", errors="replace")
+    macros = _MACRO_RE.findall(text)
+    if not macros:
+        print("[macros] no peripheral macros found in ti_msp_dl_config.h")
+        return True
+    width = max(len(name) for name, _ in macros)
+    print(f"\n=== Generated macros ({header.name}) -- use these EXACT names in your .c ===")
+    for name, value in macros:
+        print(f"  {name:<{width}}  {value}")
+    print("=== end macros ===\n")
+    return True
+
+
 def _chip_info(config: dict) -> dict:
     """Derive chip-specific build parameters from config['chip'].
 
@@ -136,6 +174,7 @@ def main(
     project_dir: str,
     config_path: str | None = None,
     _interactive: bool = True,
+    sysconfig_only: bool = False,
 ) -> tuple[bool, str]:
     cfg_path = config_path or str(Path(__file__).resolve().parents[1] / "config.json")
     if not Path(cfg_path).exists():
@@ -180,6 +219,13 @@ def main(
     result = subprocess.run(sysconfig_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(proj))
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
+
+    # --sysconfig-only: stop here. Print the ground-truth macro names so the agent
+    # can write the .c with correct macros and avoid the first-build failure.
+    if sysconfig_only:
+        print_generated_macros(proj)
+        header = proj / "ti_msp_dl_config.h"
+        return True, str(header)
 
     # NOTE: Do NOT delete ti_msp_dl_config.c/h here.
     # CLI build (ticlang/makefile) uses -I.. and compiles ../ti_msp_dl_config.c directly.
@@ -239,15 +285,23 @@ if __name__ == "__main__":
     parser.add_argument("project_dir", help="Path to project directory")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip interactive prompts")
     parser.add_argument("--rebuild", action="store_true", help="Delete ticlang/ and regenerate makefile from scratch")
+    parser.add_argument("--sysconfig-only", action="store_true",
+                        help="Run only SysConfig, then print generated macro names and stop (no gmake). "
+                             "Use this after editing .syscfg to get ground-truth macros BEFORE writing the .c.")
     args = parser.parse_args()
     if args.rebuild:
         ticlang = Path(args.project_dir) / "ticlang"
         if ticlang.exists():
             shutil.rmtree(ticlang)
             print("[rebuild] removed ticlang/ for fresh regeneration")
-    ok, msg = main(args.project_dir, _interactive=not args.yes)
+    # --sysconfig-only is meant for non-interactive agent use; skip prompts.
+    interactive = not (args.yes or args.sysconfig_only)
+    ok, msg = main(args.project_dir, _interactive=interactive, sysconfig_only=args.sysconfig_only)
     if ok:
-        print(f"\nBuild successful\n  Output: {msg}")
+        if args.sysconfig_only:
+            print(f"\nSysConfig done\n  Header: {msg}")
+        else:
+            print(f"\nBuild successful\n  Output: {msg}")
     else:
         print(f"\nBuild failed\n{msg}")
         raise SystemExit(1)

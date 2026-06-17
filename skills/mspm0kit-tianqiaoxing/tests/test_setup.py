@@ -15,8 +15,9 @@ def test_config_json_written():
         setup.CONFIG_DIR = Path(tmp)
 
         try:
+            # All empty input → fall back to defaults (paths auto-searched/validated).
             with patch("builtins.input", side_effect=["", "", ""]):
-                cfg = setup.interactive_config()
+                cfg = setup._interactive_config()
                 setup.write_config(cfg)
 
             cfg_path = Path(tmp) / "config.json"
@@ -32,20 +33,31 @@ def test_config_json_written():
 
 
 def test_user_override():
-    """User input replaces defaults."""
+    """User input replaces defaults when the supplied paths exist.
+
+    build_config validates paths and auto-searches when they don't exist, so the
+    override semantics can only be asserted with real directories — feed existing
+    temp dirs for CCS/SDK; probe is stored verbatim.
+    """
     with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        ccs_dir = root / "ccs"
+        sdk_dir = root / "sdk"
+        ccs_dir.mkdir()
+        sdk_dir.mkdir()
+
         orig = setup.CONFIG_DIR
-        setup.CONFIG_DIR = Path(tmp)
+        setup.CONFIG_DIR = root
 
         try:
             with patch("builtins.input",
-                        side_effect=[r"C:\my\ccs", r"C:\my\sdk", "JLink"]):
-                cfg = setup.interactive_config()
+                        side_effect=[str(ccs_dir), str(sdk_dir), "JLink"]):
+                cfg = setup._interactive_config()
                 setup.write_config(cfg)
 
-            cfg = json.loads((Path(tmp) / "config.json").read_text(encoding="utf-8"))
-            assert cfg["ccs_root"] == r"C:\my\ccs"
-            assert cfg["sdk_root"] == r"C:\my\sdk"
+            cfg = json.loads((root / "config.json").read_text(encoding="utf-8"))
+            assert cfg["ccs_root"] == str(ccs_dir)
+            assert cfg["sdk_root"] == str(sdk_dir)
             assert cfg["probe"] == "JLink"
         finally:
             setup.CONFIG_DIR = orig
