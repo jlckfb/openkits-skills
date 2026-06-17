@@ -1,5 +1,8 @@
 # PWM / Timer on Tianqiaoxing G3519
 
+> ⚠️ **先确认你真的需要定时器**：LED 闪烁、消抖、上电冒烟测试这类**阻塞延时**，直接用 `delay_cycles(CPUCLK_FREQ / 1000 * 毫秒数)` 即可（见 [gpio.md](gpio.md) 的闪烁范本），**不要配 TIMER 外设**——省掉整个 SysConfig 配置和宏校验。
+> "200ms 闪烁"**不算** periodic interrupt：只有当主循环要**并发做别的事**、不能被延时阻塞时，才用定时器中断。下方的 TIMER 模块用于这种非阻塞周期任务（tick、timeout 轮询），不是用来做简单闪烁的。
+
 ## SDK Examples
 
 | Example | What It Does |

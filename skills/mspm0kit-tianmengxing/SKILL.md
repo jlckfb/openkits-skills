@@ -57,7 +57,14 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
    This runs SysConfig once and prints every generated macro (`*_PORT`, `*_PIN`, `*_INST`, `*_IIDX`, ...) from `ti_msp_dl_config.h`. Write the `.c` using those EXACT names. This eliminates the first-build failure caused by guessed macros.
 5. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
 
-   > ⚠️ **延时函数陷阱**：MSPM0 DriverLib **没有** `DL_Delay_ms()` 或 `DL_Delay_us()` 函数。唯一可用的延时 API 是 `delay_cycles(n)`（定义在 `dl_core.h`）。不要凭 ARM/STM32 经验猜测 API 名称。如需 ms 级精确延时，使用 Timer 定时器中断。
+   > ⚠️ **延时函数陷阱**：MSPM0 DriverLib **没有** `DL_Delay_ms()` / `DL_Delay_us()`。唯一的延时 API 是 `delay_cycles(n)`（定义在 `dl_core.h`），不要凭 ARM/STM32 经验猜函数名。
+   >
+   > **简单延时（闪烁、消抖、上电冒烟测试）直接用 `delay_cycles`，不要配定时器外设**——除 LED 用的那个 GPIO 外，无需任何 SysConfig 外设，也就没有宏要校验。ms 数直接套公式（与时钟频率无关）：
+   > ```c
+   > // 延时 N 毫秒：N * (每毫秒的时钟周期数)
+   > delay_cycles(CPUCLK_FREQ / 1000 * 200);   // 例：200 ms
+   > ```
+   > 只有当你需要**主循环并发做别的事**、或**周期性非阻塞触发**时，才用 Timer (TIMG/TIMA) 中断。纯闪烁不属于这种情况。
 
 6. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
    - If yes → proceed to Step 4 (build + report errors)

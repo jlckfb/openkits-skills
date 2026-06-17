@@ -106,7 +106,7 @@ def test_scaffold_fixes_package():
         )
 
         proj = out_dir / "test_pkg"
-        syscfg = (proj / "test_pkg.syscfg").read_text()
+        syscfg = (proj / "test_pkg.syscfg").read_text(encoding="utf-8")
         assert 'LQFP-64(PM)' in syscfg
         assert 'LQFP-100(PZ)' not in syscfg
 

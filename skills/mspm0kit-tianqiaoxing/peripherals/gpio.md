@@ -64,6 +64,29 @@ DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);
 DL_GPIO_togglePins(GPIOB, DL_GPIO_PIN_22);
 ```
 
+### 简单闪烁 — 直接用 `delay_cycles`，不要配定时器
+
+LED 闪烁、消抖、上电冒烟测试这类**阻塞延时**，直接用 `delay_cycles(n)`（SDK 自带，定义在 `dl_core.h`）即可。**除 LED 这一个 GPIO 外，不需要任何 SysConfig 外设**，也就没有定时器宏要校验，最省时间。
+
+ms 数直接套公式（与时钟频率无关，`CPUCLK_FREQ` 由 SysConfig 生成在 `ti_msp_dl_config.h`）：
+
+```c
+#include "ti_msp_dl_config.h"
+
+int main(void)
+{
+    SYSCFG_DL_init();
+    while (1)
+    {
+        DL_GPIO_togglePins(GPIOB, DL_GPIO_PIN_22);   // PB22 板载 LED
+        delay_cycles(CPUCLK_FREQ / 1000 * 200);      // 延时 200 ms
+    }
+}
+```
+
+> ⚠️ MSPM0 DriverLib **没有** `DL_Delay_ms()` / `DL_Delay_us()`，唯一延时 API 就是 `delay_cycles(n)`，不要凭 STM32/ARM 经验猜函数名。
+> 只有当主循环需要**并发做别的事**或**非阻塞周期触发**时，才用定时器中断（见 [pwm_timer.md](pwm_timer.md)）。纯闪烁不属于这种情况。
+
 ## Generated Macros
 
 ```

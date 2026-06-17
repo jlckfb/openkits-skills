@@ -16,6 +16,8 @@ When the user requests a new project, follow these four steps:
 
 ### Step 1 — Think
 
+> 🚀 **快路径判断（先做这一步）**：如果需求只是 **LED 闪烁 / GPIO 翻转 / 阻塞延时**（含"每 N 毫秒/秒闪一次"），那就**只配 LED 这一个 GPIO**，用 `delay_cycles(CPUCLK_FREQ / 1000 * 毫秒数)` 做延时——**不要配定时器、不要读 `pwm_timer.md`**。范本见 [peripherals/gpio.md](peripherals/gpio.md)。只有主循环要**并发做别的事**时才需要定时器。
+
 1. Identify the peripheral(s) the user wants (UART, GPIO, PWM, SPI, I2C, ADC, Timer).
 2. Check the pin table below to confirm target pins are available.
 3. Read the corresponding `peripherals/<peripheral>.md` for the SDK example name and pin mapping.
@@ -42,10 +44,20 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 1. Ask: "是否允许我读取 SDK 目录（`<sdk_root>`）来复制例程模板？"
 2. On approval, run scaffold using the **full path** to the skill's scripts directory:
    ```
-   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
+   python <skill_dir>/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
    ```
    The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
-   To locate the scripts: `find ~ -path "*/mspm0kit-tianqiaoxing/scripts/scaffold.py" 2>/dev/null`
+
+   **Skill install path varies by agent platform** — locate it FIRST (don't assume `.claude`):
+   - Claude Code (Linux/macOS): `~/.claude/skills/mspm0kit-tianqiaoxing/scripts/`
+   - Claude Code (Windows): `C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/`
+   - Reasonix (Windows): `C:/Users/<user>/.reasonix/skills/mspm0kit-tianqiaoxing/scripts/`
+   - Codex/其他 Agent: `C:/Users/<user>/.agents/skills/mspm0kit-tianqiaoxing/scripts/`
+   - 通用自发现（一条命令）: `ls ~/.claude/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null || ls ~/.reasonix/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null || ls ~/.agents/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null`
+
+   记下找到的目录作为 `<skill_dir>`，**后续 cleanup.py / build.py / flash.py 全部复用这个目录**，不要再逐个猜路径。
+
+   > ⚠️ **不要用 `cmd /c "python ..."` 包裹脚本调用**：`cmd /c` 会吞掉 Python 的 stdout（scaffold 打印的中文提示会丢失，让你误以为失败）。直接 `python "<全路径>/scaffold.py" ...` 即可。
 3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` first.
 4. **After editing `.syscfg`, BEFORE writing the `.c`, fetch the ground-truth macro names** — never guess them:
    ```
@@ -61,7 +73,7 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 0. **MANDATORY: Run cleanup before building (every time):**
    ```bash
-   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/cleanup.py <project_dir>
+   python <skill_dir>/scripts/cleanup.py <project_dir>
    ```
    Use the **full path** to cleanup.py (same directory as scaffold.py above).
    This automatically:
@@ -73,7 +85,7 @@ Wait for confirmation before creating files, OR proceed if the user has indicate
 
 1. Run build:
    ```
-   python C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/build.py <project_dir> --yes
+   python <skill_dir>/scripts/build.py <project_dir> --yes
    ```
    `--yes` 跳过交互确认。非交互环境下必须加此参数，否则 `input()` 会抛 EOFError。
 2. If build fails: read the error, fix the issue, retry (max 3 times).
@@ -193,7 +205,7 @@ All other pins not listed above. The board uses LQFP-64(PM) package.
 | `cleanup.py <project_dir>` | **MANDATORY before build** |
 | `scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]` | Generate OLED UI project |
 
-> All scripts are in the skill install directory: `~/.claude/skills/mspm0kit-tianqiaoxing/scripts/`. Use full path when calling.
+> All scripts are in the skill install directory（路径因 Agent 平台而异，见 Step 3 的 `<skill_dir>` 自发现命令）。Use full path when calling.
 
 ## Reference
 
