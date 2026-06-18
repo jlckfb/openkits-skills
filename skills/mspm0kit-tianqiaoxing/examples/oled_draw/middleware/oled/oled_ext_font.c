@@ -1,13 +1,19 @@
 /**
  * oled_ext_font.c — built-in font version (NO external Flash required)
- * Uses OLED_CF12x12/16x16/20x20 bitmaps from OLED_Fonts.c instead of W25Q128 Flash.
+ * Uses OLED_CF12x12/16x16/20x20 bitmaps from OLED_Fonts.c.
+ * Fallback: returns empty (blank) if font array missing.
  */
 #include "oled_ext_font.h"
 #include "OLED.h"
 #include "OLED_Fonts.h"
 #include <string.h>
 
-extern int Unicode_to_GB2312(uint16_t unicode, uint8_t *gb_high, uint8_t *gb_low);
+/* Weak fallback: provide empty arrays if OLED_Fonts.o doesn't export them */
+__attribute__((weak)) const ChineseCell12x12_t OLED_CF12x12[] = { {{"", {0}} } };
+__attribute__((weak)) const ChineseCell16x16_t OLED_CF16x16[] = { {{"", {0}} } };
+__attribute__((weak)) const ChineseCell20x20_t OLED_CF20x20[] = { {{"", {0}} } };
+__attribute__((weak)) int Unicode_to_GB2312(uint16_t unicode, uint8_t *gb_high, uint8_t *gb_low) { return 0; }
+#pragma weak Unicode_to_GB2312
 
 static void ExtFont_GetParams(uint8_t fontSize, uint32_t* baseAddr, uint8_t* charSize) {
     (void)baseAddr;
@@ -18,10 +24,13 @@ static void ExtFont_GetParams(uint8_t fontSize, uint32_t* baseAddr, uint8_t* cha
 
 void ExtFont_ReadChinese(uint8_t high, uint8_t low, uint8_t* buf, uint8_t fontSize) {
     char index_str[4];
+    if (!buf) return;
+    memset(buf, 0, (fontSize == 12) ? 24 : (fontSize == 20) ? 60 : 32);
+    if (!OLED_CF12x12 && !OLED_CF16x16 && !OLED_CF20x20) return;
     index_str[0] = (char)high;
     index_str[1] = (char)low;
     index_str[2] = '\0';
-    if (fontSize == 12) {
+    if (fontSize == 12 && OLED_CF12x12) {
         int i = 0;
         while (OLED_CF12x12[i].Index[0] != '\0') {
             if (strcmp(OLED_CF12x12[i].Index, index_str) == 0) {

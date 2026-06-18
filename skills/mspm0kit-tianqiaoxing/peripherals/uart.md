@@ -1,50 +1,38 @@
 # UART on Tianqiaoxing G3519
 
-## Available UART Instances
+## Board UART Instances
 
-| Instance | Status | Notes |
-|----------|--------|-------|
-| UART0 | Occupied (sharable) | PA10(TX)/PA11(RX) → CH340 USB-C; header pins can share |
-| UART1 | Free | Any free pins |
-| UART2 | Free | Any free pins |
-| UART3 | Free | Any free pins |
-| UART7 | Occupied | PB17(TX)/PB18(RX) → wireless UART module |
+| Instance | TX | RX | Baud | 用途 |
+|----------|----|----|------|------|
+| UART0 | PA10 | PA11 | **9600** | CH340 USB-C 调试串口（排针可共用） |
+| UART7 | PB17 | PB18 | **115200** | 2.4G 无线模块 |
 
-## SDK Examples
+## SysConfig 配置
 
-| Example | What It Does |
-|---------|-------------|
-| `uart_rw_multibyte_fifo_poll` | TX/RX 4 bytes via FIFO polling, loopback test, LED toggle |
-| `uart_tx_console_multibyte_repeated_fifo_dma` | Console TX via DMA, 115200 baud |
-| `uart_echo_interrupts_standby` | Echo with RX interrupt + standby |
-| `uart_external_loopback_interrupt` | TX/RX with external loopback test |
-
-## Pin Mapping (LP → Tianqiaoxing)
-
-SDK default: PA10(TX)/PA11(RX) → Keep same (CH340 on board, can share)
-SDK LED: PA0 → Remove (OLED pin on Tianqiaoxing)
-SDK TEST: PA15 → Remove (free on Tianqiaoxing but not needed)
-
-## Recommended Pattern (Debug Console)
-
-1. Run: `python scripts/scaffold.py <name> uart_rw_multibyte_fifo_poll`
-2. Edit .syscfg: baud = 115200 (change from default 9600)
-3. Build and flash.
-4. Monitor: `python scripts/serial_console.py COM6 115200`
-
-## Generated Macros (after SysConfig)
-
-```
-UART_0_INST         → UART0
-UART_0_BAUD_RATE    → 115200
-GPIO_UART_0_TX_PIN  → DL_GPIO_PIN_10
-GPIO_UART_0_RX_PIN  → DL_GPIO_PIN_11
+```js
+const UART_DEBUG = scripting.addModule("/ti/driverlib/UART", {}, false).addInstance();
+UART_DEBUG.$name                    = "UART_DEBUG";
+UART_DEBUG.targetBaudRate           = 9600;
+UART_DEBUG.enabledInterrupts        = ["RX"];
+UART_DEBUG.peripheral.$assign       = "UART0";
+UART_DEBUG.peripheral.txPin.$assign = "PA10";
+UART_DEBUG.peripheral.rxPin.$assign = "PA11";
 ```
 
 ## Key APIs
 
 ```c
-DL_UART_Main_fillTXFIFO(UART_0_INST, data, len);
-DL_UART_receiveDataBlocking(UART_0_INST);
-while (DL_UART_Main_isBusy(UART_0_INST));
+// 发送一个字节
+DL_UART_transmitDataBlocking(UART_DEBUG_INST, byte);
+
+// 接收（中断模式）
+void UART0_IRQHandler(void) {
+    if (DL_UART_getPendingInterrupt(UART_DEBUG_INST) == DL_UART_IIDX_RX) {
+        uint8_t data = DL_UART_receiveData(UART_DEBUG_INST);
+    }
+}
 ```
+
+## Free UART Instances
+
+UART1, UART2, UART3 均可自由使用。引脚选择参考 datasheet pinmux 表。

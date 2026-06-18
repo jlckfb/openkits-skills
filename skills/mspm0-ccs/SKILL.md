@@ -60,10 +60,9 @@ Scripts live in the skill install directory, NOT in the project directory. Locat
 5. Ask: "工程已生成，是否要我帮你编译测试？"
 
 **Step 4 — Verify**:
-1. **MANDATORY**: `python <skill_dir>/scripts/cleanup.py <project_dir>` (moves .c to root, removes stale generated files, removes ticlang/)
-2. Build: `python <skill_dir>/scripts/build.py <project_dir> --yes` (`--yes` 跳过交互确认，agent 必须加)
-3. If build fails: read error, fix, retry (max 3).
-4. If build succeeds: report `.out` path + provide flash command.
+1. Build: `python <skill_dir>/scripts/build.py <project_dir> --yes` (`--yes` 跳过交互确认，agent 必须加。build.py 内置自动清理：仅在检测到 stale 文件时才执行，新项目零开销)
+2. If build fails: read error, fix, retry (max 3).
+3. If build succeeds: report `.out` path + provide flash command.
 
 **Flash**: `python <skill_dir>/scripts/flash.py <project_dir>` — auto-selects DSLite (XDS110) or JLink based on `config.json` probe field.
 
@@ -102,7 +101,7 @@ delay_cycles(CPUCLK_FREQ / 1000 * N);  // 延时 N 毫秒
 | `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
 | `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
 | `serial_console.py -p <port> -b <baud>` | Serial monitor |
-| `cleanup.py <project_dir>` | **MANDATORY before build** |
+| `cleanup.py <project_dir>` | Legacy standalone cleanup (now built into build.py) |
 
 ### Path Configuration
 

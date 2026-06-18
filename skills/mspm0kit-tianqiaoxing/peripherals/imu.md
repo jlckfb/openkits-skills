@@ -5,8 +5,8 @@
 
 ## Hardware
 
-- Sensor: LSM6DS3 6-axis (3-axis accel + 3-axis gyro)
-- Interface: Software I2C on PA28(SDA) / PA27(SCL)
+- Sensor: LSM6DS3TRC 6-axis (3-axis accel + 3-axis gyro)
+- Interface: **Software I2C on PA0(SDA) / PA1(SCL)** — 与 OLED 共享同一 I2C 总线
 - I2C Address: 0x6A (SA0 to GND)
 - Fusion algorithm: AHRS (Mahony) — pitch/yaw/roll output
 
@@ -17,17 +17,6 @@ python scripts/scaffold_oled.py <name> --with-imu
 ```
 
 This copies: `hw_lsm6ds3.c/h`, `FusionAhrs.c/h`, `FusionOffset.c/h`, `FusionConvention.h`, `FusionMath.h`, `mid_timer_stub.c/h`
-
-And adds to `.syscfg`: GPIO pins for IMU I2C (PA27/PA28) + TIMA0 5ms periodic timer.
-
-## Generated Macros (from syscfg)
-
-```
-IMU_SDA_PIN         → DL_GPIO_PIN_28
-IMU_SCL_PIN         → DL_GPIO_PIN_27
-TIMER_TICK_INST     → TIMA0
-TIMER_TICK_INST_INT_IRQN → TIMA0_INT_IRQn
-```
 
 ## Key APIs
 
@@ -52,12 +41,12 @@ float roll  = FusionAhrsGetRoll();
 
 ## Configuration
 
-LSM6DS3 output rate and full-scale are set at init in `hw_lsm6ds3.c`:
+LSM6DS3 output rate and full-scale (init in `hw_lsm6ds3.c`):
 - Accel: ±2g default, up to ±16g
 - Gyro: ±245 dps default, up to ±2000 dps
-- Change via registers: `CTRL1_XL`, `CTRL2_G`
+- Registers: `CTRL1_XL` (0x10), `CTRL2_G` (0x11)
 
 ## Dependencies
 
-- `myiic.c/h` (software I2C, shared with OLED)
+- `myiic.c/h` (software I2C on PA0/PA1, shared with OLED)
 - `mid_timer_stub.c/h` (5ms system tick via TIMA0)

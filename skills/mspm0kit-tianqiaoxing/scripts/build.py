@@ -166,6 +166,44 @@ $(NAME).out: $(OBJECTS)
     (ticlang_dir / "makefile").write_text(makefile, encoding="utf-8")
 
 
+def _auto_cleanup(proj: Path) -> None:
+    """Conditional cleanup: only act if stale/conflicting files are detected."""
+    cleaned = 0
+
+    # Remove generated files that belong in Debug/ (stale from CCS import)
+    for name in ["device_linker.cmd", "device.cmd.genlibs", "device.opt",
+                 "ti_msp_dl_config.c", "ti_msp_dl_config.h"]:
+        gen_file = proj / name
+        if gen_file.exists():
+            gen_file.unlink()
+            print(f"[cleanup] removed root/{name}")
+            cleaned += 1
+
+    # Remove stale ticlang/ (has .o or .out from previous build)
+    ticlang = proj / "ticlang"
+    if ticlang.is_dir():
+        has_stale = any(ticlang.glob("*.o")) or any(ticlang.glob("*.out"))
+        if has_stale:
+            # Save startup files before removal
+            for sf in ticlang.glob("startup_*.c"):
+                dest = proj / sf.name
+                if not dest.exists():
+                    shutil.copy2(sf, dest)
+            shutil.rmtree(ticlang, ignore_errors=True)
+            print("[cleanup] removed stale ticlang/")
+            cleaned += 1
+
+    # Remove leftover src/ (old flat-structure scaffold)
+    src_dir = proj / "src"
+    if src_dir.is_dir():
+        shutil.rmtree(src_dir)
+        print("[cleanup] removed src/")
+        cleaned += 1
+
+    if cleaned:
+        print(f"[cleanup] {cleaned} issue(s) fixed")
+
+
 def main(
     project_dir: str,
     config_path: str | None = None,
@@ -186,6 +224,9 @@ def main(
     if not syscfg_files:
         return False, f"No .syscfg file found in {proj}"
     syscfg = syscfg_files[0]
+
+    # Auto-cleanup: only run if stale files detected (skip for fresh projects)
+    _auto_cleanup(proj)
 
     sysconfig_cli = config.get("sysconfig_cli", "sysconfig_cli.bat")
     gmake = config.get("gmake", "gmake")

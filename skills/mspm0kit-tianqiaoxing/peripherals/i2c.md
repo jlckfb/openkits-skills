@@ -1,40 +1,42 @@
 # I2C on Tianqiaoxing G3519
 
-## I2C Instances
+## Board I2C Bus
 
-| Instance | Status | Tianqiaoxing Usage |
-|----------|--------|--------------------|
-| I2C0 (Hardware) | Free | Available on any free pins |
-| I2C1 (Hardware) | Free | Available on any free pins |
-| Software I2C (PA0/PA1) | Occupied | OLED SSD1312 (2.2kΩ pull-up) |
-| Software I2C (PA27/PA28) | Occupied | LSM6DS3 IMU |
+| 引脚 | 功能 | 方式 | 设备 |
+|------|------|------|------|
+| PA0 (SDA) | I2C 数据线 | **软件 I2C**（GPIO 位模拟） | OLED + IMU (LSM6DS3) 共享总线 |
+| PA1 (SCL) | I2C 时钟线 | **软件 I2C**（GPIO 位模拟） | 同上 |
 
-## SDK Example
+板载 2.2kΩ 上拉电阻。OLED 和 IMU 在同一条 I2C 总线上（不是两组独立总线）。
 
-`i2c_controller_rw_multibyte_fifo_poll` — I2C controller read/write via FIFO polling
+## Software I2C 实现
 
-## Pin Mapping (LP → Tianqiaoxing)
-
-SDK default: I2C2 on PC2(SCL)/PC3(SDA)
-Tianqiaoxing: PC2/PC3 not available on LQFP-64 → use I2C0 on free pins
-
-## Recommended Free Pins for Hardware I2C
-
-PA12(SCL) / PA13(SDA) or PA3(SCL) / PA4(SDA)
-
-## Generated Macros (example)
-
-```
-I2C_0_INST       → I2C0
-GPIO_I2C_0_SDA_PIN → DL_GPIO_PIN_13
-GPIO_I2C_0_SCL_PIN → DL_GPIO_PIN_12
-```
-
-## Key APIs
+固件使用 GPIO open-drain 模拟：
 
 ```c
-DL_I2C_fillControllerTXFIFO(I2C_0_INST, &txData, len);
-DL_I2C_startControllerTransfer(I2C_0_INST, addr, DL_I2C_CONTROLLER_DIRECTION_RX, len);
-while (DL_I2C_isControllerBusy(I2C_0_INST));
-rxData = DL_I2C_receiveControllerData(I2C_0_INST);
+#define IIC_SDA_H()    DL_GPIO_setPins(GPIOA, DL_GPIO_PIN_0)
+#define IIC_SDA_L()    DL_GPIO_clearPins(GPIOA, DL_GPIO_PIN_0)
+#define IIC_SCL_H()    DL_GPIO_setPins(GPIOA, DL_GPIO_PIN_1)
+#define IIC_SCL_L()    DL_GPIO_clearPins(GPIOA, DL_GPIO_PIN_1)
+#define IIC_SDA_READ() DL_GPIO_readPins(GPIOA, DL_GPIO_PIN_0)
 ```
+
+## Hardware I2C（可选）
+
+I2C0 也可配为硬件模式（400 kHz），使用 `scaffold_oled.py --i2c hw`。
+
+硬件 I2C 参数：
+- Bus Clock: 40 MHz
+- Speed: 400 kHz
+- Digital Glitch Filter: 8-clock width
+
+## I2C 设备地址
+
+| 设备 | 地址 | 备注 |
+|------|------|------|
+| OLED (SSD1306/SSD1312) | 0x3C | 128×64 单色 |
+| LSM6DS3TRC IMU | 0x6A | SA0 接地 |
+
+## 自由 I2C 引脚
+
+如需额外 I2C 总线，推荐：PA12(SCL)/PA13(SDA) 或 PA3(SCL)/PA4(SDA)。

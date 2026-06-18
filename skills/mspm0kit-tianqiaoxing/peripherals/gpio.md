@@ -1,209 +1,54 @@
 # GPIO on Tianqiaoxing G3519
 
-## SDK Example
-
-`gpio_toggle_output` — toggles 4 pins (PB22, PB26, PB27, PB14) with delay
-
-## Pin Mapping (LP → Tianqiaoxing)
-
-| SDK Pin | SDK Name | Tianqiaoxing | Action |
-|---------|----------|--------------|--------|
-| PB22 | USER_LED_1 | PB22 (onboard LED) | Keep |
-| PB26 | USER_LED_2 | PB26 (WS2812) | Remove (occupied) |
-| PB27 | USER_LED_3 | PB27 (Buzzer) | Remove (occupied) |
-| PB14 | USER_TEST | Free | Keep as test output |
-
-## CRITICAL: SysConfig Macro Bug (SDK 2.04 / SysConfig 1.27)
-
-SDK 2.04.00.06 + SysConfig 1.27.0 的 LQFP-64(PM) 封装器件数据存在引脚映射 bug。生成的 `*_PORT` 和 `*_PIN` 宏可能指向错误的 GPIO 端口（例如 `DEBUG_LED_PORT = GPIOA` 实际应该是 `GPIOB`）。
-
-**规则：生成 SysConfig 后，必须验证宏**。用 `grep` 检查 `ti_msp_dl_config.h`：
-```c
-#define DEBUG_LED_PORT          (GPIOB)      // 期望 GPIOB
-#define DEBUG_LED_PIN_22_PIN    (DL_GPIO_PIN_22) // 期望 PIN_22
-```
-
-如果宏错误，**在代码中使用直接值**而非生成的宏：
-```c
-DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);   // 正确：直接指定
-DL_GPIO_setPins(DEBUG_LED_PORT, DEBUG_LED_PIN_22_PIN); // 可能错误！
-```
-
-升级到 SDK >= 2.05.01.01 + SysConfig 1.24 可避免此 bug。
-
-## CRITICAL: Output Enable Required
-
-`DL_GPIO_initDigitalOutput(IOMUX_PINCM)` **只配置 IOMUX** 将引脚设为 GPIO 功能，**不设置输出方向**。必须额外调用：
+## Onboard LED — PB22 (active-LOW)
 
 ```c
-DL_GPIO_initDigitalOutput(IOMUX_PINCM50);   // 只配 IOMUX
-DL_GPIO_enableOutput(GPIOB, DL_GPIO_PIN_22); // 必须！否则引脚高阻态
+DL_GPIO_clearPins(GPIOB, DL_GPIO_PIN_22);   // LED ON
+DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);     // LED OFF
+DL_GPIO_togglePins(GPIOB, DL_GPIO_PIN_22);  // Toggle
 ```
 
-SysConfig 生成的 `SYSCFG_DL_GPIO_init()` 虽然会调用 `enableOutput`，但如果宏映射错误，它使能的是错误的引脚。因此在手动代码中必须显式调用。
+## Buttons
 
-## LED Polarity
+| Pin | Name | Pull | Active | 功能 |
+|-----|------|------|--------|------|
+| PB21 | ENTER | PULL_UP | Low | 菜单确认 |
+| PA18 | BACK | PULL_DOWN | High | 菜单返回（BSL 引脚，正常使用时 PULL_DOWN） |
+| PA31 | ENC_SW | PULL_UP | Low | 编码器按下 |
+| PA24 | KEY1 | PULL_UP | Low | 用户按键 1（等效 BACK） |
+| PB24 | KEY2 | PULL_UP | Low | 用户按键 2（等效 ENTER） |
 
-**PB22 板载 LED：低电平亮（active-LOW）**
-
+按键逻辑（固件实现）：
 ```c
-DL_GPIO_clearPins(GPIOB, DL_GPIO_PIN_22);   // LOW  → LED ON
-DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);     // HIGH → LED OFF
+back  = (PA18 == HIGH) || (PA24 == LOW);  // 任一触发即 back
+enter = (PB21 == LOW)  || (PB24 == LOW);  // 任一触发即 enter
 ```
 
-> 与天猛星（active-HIGH = 高电平亮）**相反**。
+## Critical Notes
 
-## Recommended Pattern
+1. **`DL_GPIO_initDigitalOutput()` 只配 IOMUX**，必须额外调 `DL_GPIO_enableOutput()` 才能输出
+2. **GPIO 中断需手动启用 NVIC**：`NVIC_EnableIRQ(GPIO_xxx_INT_IRQN)`
+3. **SDK 2.04 LQFP-64(PM) 有引脚映射 bug** — SysConfig 后 grep `ti_msp_dl_config.h` 验证宏。SDK >= 2.05 已修复。
+4. **`.syscfg` 中 `initialValue` 枚举是 `"CLEARED"` / `"SET"`**（不是 `"CLEAR"`）。写错会导致 SysConfig 报错 `No option named CLEAR defined`。
 
-```c
-// LED on (active-low)
-DL_GPIO_clearPins(GPIOB, DL_GPIO_PIN_22);
-// LED off
-DL_GPIO_setPins(GPIOB, DL_GPIO_PIN_22);
-// Toggle
-DL_GPIO_togglePins(GPIOB, DL_GPIO_PIN_22);
-```
-
-### 简单闪烁 — 直接用 `delay_cycles`，不要配定时器
-
-LED 闪烁、消抖、上电冒烟测试这类**阻塞延时**，直接用 `delay_cycles(n)`（SDK 自带，定义在 `dl_core.h`）即可。**除 LED 这一个 GPIO 外，不需要任何 SysConfig 外设**，也就没有定时器宏要校验，最省时间。
-
-ms 数直接套公式（与时钟频率无关，`CPUCLK_FREQ` 由 SysConfig 生成在 `ti_msp_dl_config.h`）：
+## Simple Blink — delay_cycles
 
 ```c
 #include "ti_msp_dl_config.h"
-
-int main(void)
-{
+int main(void) {
     SYSCFG_DL_init();
-    while (1)
-    {
-        DL_GPIO_togglePins(GPIOB, DL_GPIO_PIN_22);   // PB22 板载 LED
-        delay_cycles(CPUCLK_FREQ / 1000 * 200);      // 延时 200 ms
+    while (1) {
+        DL_GPIO_clearPins(GPIO_LED_PORT, GPIO_LED_PIN_PIN);  // ON
+        delay_cycles(CPUCLK_FREQ / 1000 * 100);             // 100ms
+        DL_GPIO_setPins(GPIO_LED_PORT, GPIO_LED_PIN_PIN);    // OFF
+        delay_cycles(CPUCLK_FREQ / 1000 * 100);             // 100ms
     }
 }
 ```
 
-> ⚠️ MSPM0 DriverLib **没有** `DL_Delay_ms()` / `DL_Delay_us()`，唯一延时 API 就是 `delay_cycles(n)`，不要凭 STM32/ARM 经验猜函数名。
-> 只有当主循环需要**并发做别的事**或**非阻塞周期触发**时，才用定时器中断（见 [pwm_timer.md](pwm_timer.md)）。纯闪烁不属于这种情况。
+> DriverLib 没有 `DL_Delay_ms()`，唯一延时 API 是 `delay_cycles(n)`。
 
-## Generated Macros
+## Free Pins (available for user assignment)
 
-```
-GPIO_LEDS_PORT              → GPIOB
-GPIO_LEDS_USER_LED_1_PIN    → DL_GPIO_PIN_22
-GPIO_LEDS_USER_LED_1_IOMUX  → IOMUX_PINCM50
-```
-
-## Free GPIO Pins (all ports)
-
-PA3, PA4, PA7–PA9, PA12–PA17, PA21–PA26
-PB0–PB5, PB10–PB16, PB19, PB20, PB24, PB25, PB28
-
-(Excludes any pin listed as occupied in SKILL.md)
-
-## SysConfig Enum Values
-
-> **CRITICAL**: `initialValue` 的有效值是 `"CLEARED"`，不是 `"CLEAR"`。写错会报：
-> `Error: cannot set 'initialValue' to 'CLEAR': No option named CLEAR defined`
-
-| Field | Valid Values | NOT Valid |
-|-------|-------------|-----------|
-| `initialValue` | `"SET"` (HIGH), **`"CLEARED"`** (LOW) | ~~`"CLEAR"`~~, `"LOW"`, `"HIGH"`, `"1"`, `"0"` |
-| `direction` | `"OUTPUT"`, `"INPUT"` | — |
-| `internalResistor` | `"PULL_UP"`, `"PULL_DOWN"`, `"NONE"` | — |
-| `ioStructure` | `"OD"` (open-drain), omitted for push-pull | — |
-
-## Naming Rules
-
-1. **`$name` 必须全局唯一 — 包括跨实例的引脚名**。SysConfig 把所有实例和引脚的 `$name` 视为全局命名空间。两个不同 GPIO 实例中有同名引脚会报 `Duplicate name` 错误。
-   - WRONG: `GPIO_ENC` 和 `GPIO_BTN` 都有 `$name = "PIN"` → `Duplicate name: 'PIN'`
-   - CORRECT: 分别命名为 `"SW"` 和 `"BTN1"`（或其他互不重复的名字）
-
-2. **GPIO instance `$name` and pin `$name` MUST NOT be equal** — 同一实例内不要同名。
-   - WRONG: instance=`"LED"`, pin=`"LED"` → Duplicate name error
-   - CORRECT: instance=`"LED"`, pin=`"PIN"` 或 `"OUT"`
-
-3. **Generated macro format — 同端口引脚共享 PORT 宏**（以 instance=`"GPIO_LED"`, pin=`"LED_PIN"` 为例）:
-   - 所有同端口引脚共享一个 `<INSTANCE>_PORT` 宏（如 `LCD_PORT` 而非 `LCD_CS_PORT`）
-   - 引脚宏：`<INSTANCE>_<PIN>_PIN` → e.g. `GPIO_LED_LED_PIN_PIN` = `DL_GPIO_PIN_22`
-   - IOMUX 宏：`<INSTANCE>_<PIN>_IOMUX` → e.g. `GPIO_LED_LED_PIN_IOMUX` = `IOMUX_PINCM50`
-   - 跨端口时：每个端口有独立的 `<INSTANCE>_<PIN>_PORT` 宏
-
-4. **Always run SysConfig first**, then `grep` the generated `ti_msp_dl_config.h` to **verify** actual macro names AND port values before writing code.
-
-## SysConfig JS Snippet
-
-### Output (LED, active-low)
-
-```js
-GPIO1.$name                         = "LED";
-GPIO1.associatedPins[0].$name       = "LED";
-GPIO1.associatedPins[0].initialValue = "SET";  // HIGH = off for active-low
-GPIO1.associatedPins[0].assignedPort = "PORTB";
-GPIO1.associatedPins[0].assignedPin  = "22";
-GPIO1.associatedPins[0].pin.$assign  = "PB22";
-```
-
-### Input (button, pull-up)
-
-```js
-GPIO1.$name                              = "BTN";
-GPIO1.associatedPins[0].$name            = "ENTER";
-GPIO1.associatedPins[0].direction        = "INPUT";
-GPIO1.associatedPins[0].internalResistor = "PULL_UP";
-GPIO1.associatedPins[0].assignedPort     = "PORTB";
-GPIO1.associatedPins[0].assignedPin      = "21";
-GPIO1.associatedPins[0].pin.$assign      = "PB21";
-```
-
-### NVIC 必须手动启用（CRITICAL）
-
-`SYSCFG_DL_init()` 只调用外设层的 `DL_GPIO_enableInterrupt()`，**不会自动调用 `NVIC_EnableIRQ()`**。忘记加这一行则中断永远不会触发。
-
-```c
-int main(void)
-{
-    SYSCFG_DL_init();
-    NVIC_EnableIRQ(BTN_INT_IRQN);  /* 必须！SysConfig 不生成这行 */
-    // ...
-}
-```
-
-### 按键消抖与多操作（单击 / 双击 / 长按）
-
-推荐使用 **MultiButton** 库，不要自己写消抖逻辑：
-
-> 仓库：https://github.com/0x1abin/MultiButton
-
-**接入方式**：
-1. 将 `multi_button.c` / `multi_button.h` 复制到项目根目录
-2. 实现引脚读取回调（低电平有效）：
-
-```c
-uint8_t btn_read_pin(void *btn)
-{
-    return DL_GPIO_readPins(BTN_PORT, BTN_USER_PIN) ? 1 : 0;
-}
-```
-
-3. 初始化并注册事件：
-
-```c
-Button btn;
-button_init(&btn, btn_read_pin, 0, 0);  /* active_level=0（低电平有效） */
-button_attach(&btn, SINGLE_CLICK,     on_single_click);
-button_attach(&btn, DOUBLE_CLICK,     on_double_click);
-button_attach(&btn, LONG_PRESS_START, on_long_press);
-button_start(&btn);
-```
-
-4. 主循环每 5 ms 调用一次（用 SysTick 或 Timer 中断驱动）：
-
-```c
-button_ticks();
-```
-
-> MultiButton 已内置消抖，无需额外处理抖动。
-
-> **所有中断外设均适用此规则**，不只是 GPIO。Timer、UART、SPI 等中断也需在 `SYSCFG_DL_init()` 后手动调用对应的 `NVIC_EnableIRQ(XXX_INST_INT_IRQN)`。
+PA3, PA4, PA7–PA9, PA12–PA17, PA21–PA23, PA25–PA28,
+PB0–PB5, PB10–PB16, PB19, PB20, PB25, PB28
