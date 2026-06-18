@@ -16,35 +16,54 @@
 python scripts/scaffold_oled.py <name> --with-imu
 ```
 
-This copies: `hw_lsm6ds3.c/h`, `FusionAhrs.c/h`, `FusionOffset.c/h`, `FusionConvention.h`, `FusionMath.h`, `mid_timer_stub.c/h`
+## 数据流：原始寄存器 → 角度
 
-## Key APIs
+完整链路（参考固件验证）：
 
 ```c
 #include "hw_lsm6ds3.h"
 #include "FusionAhrs.h"
 
-// Init (after SYSCFG_DL_init)
+/* ---- 1. 初始化 ---- */
 LSM6DS3_Init();
-timer_init();
+timer_init();       /* 5ms tick via TIMA0 */
 
-// Read sensor data
-LSM6DS3_ReadAccel(&ax, &ay, &az);   // float, m/s²
-LSM6DS3_ReadGyro(&gx, &gy, &gz);    // float, rad/s
+/* ---- 2. 定时读取（如 10ms ISR 或主循环定时） ---- */
+float ax, ay, az;   /* accel  m/s² */
+float gx, gy, gz;   /* gyro   rad/s  */
 
-// Run AHRS fusion (call at fixed interval, e.g. 10ms)
+LSM6DS3_ReadAccel(&ax, &ay, &az);
+LSM6DS3_ReadGyro(&gx, &gy, &gz);
+
+/* ---- 3. 运行 AHRS 融合（dt 单位：秒） ---- */
+float dt = 0.01f;   /* 10ms */
 FusionAhrsUpdate(gx, gy, gz, ax, ay, az, dt);
-float pitch = FusionAhrsGetPitch();  // degrees
-float yaw   = FusionAhrsGetYaw();
-float roll  = FusionAhrsGetRoll();
+
+/* ---- 4. 获取欧拉角（度） ---- */
+float pitch = FusionAhrsGetPitch();  /* X轴旋转，抬头为正 */
+float yaw   = FusionAhrsGetYaw();    /* Z轴旋转，北向为0，随时间漂移 */
+float roll  = FusionAhrsGetRoll();   /* Y轴旋转，右倾为正 */
+
+/* 可选：融合四元数 */
+FusionAhrs.quaternion.element;       /* w, x, y, z */
 ```
 
-## Configuration
+## 单位与坐标约定
 
-LSM6DS3 output rate and full-scale (init in `hw_lsm6ds3.c`):
-- Accel: ±2g default, up to ±16g
-- Gyro: ±245 dps default, up to ±2000 dps
-- Registers: `CTRL1_XL` (0x10), `CTRL2_G` (0x11)
+| 量 | 函数 | 单位 | 范围 |
+|----|------|------|------|
+| 加速度 | `LSM6DS3_ReadAccel` | m/s² | ±2g（默认），可配 ±4/±8/±16g |
+| 角速度 | `LSM6DS3_ReadGyro` | rad/s | ±245°/s（默认），可配 ±500/±1000/±2000°/s |
+| 俯仰角 | `FusionAhrsGetPitch` | 度 (°) | -90 ~ +90 |
+| 偏航角 | `FusionAhrsGetYaw` | 度 (°) | 0 ~ 360（累计漂移） |
+| 滚转角 | `FusionAhrsGetRoll` | 度 (°) | -180 ~ +180 |
+
+## 传感器配置
+
+寄存器（`hw_lsm6ds3.c` 初始化中设置）：
+- Accel: ±2g → `CTRL1_XL` (0x10)
+- Gyro: ±245 dps → `CTRL2_G` (0x11)
+- 状态寄存器 0x1E：bit0=accel ready, bit1=gyro ready
 
 ## Dependencies
 
