@@ -153,7 +153,6 @@ NAME    = {proj.name}
 all: $(NAME).out
 
 $(NAME).out: $(OBJECTS)
-\t@echo linking $@
 \t$(LNK) $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
 """
@@ -213,7 +212,8 @@ def main(
         "--product", product_json, "--output", str(proj), str(syscfg),
     ]
     print(f"[SysConfig] {' '.join(sysconfig_cmd)}")
-    result = subprocess.run(sysconfig_cmd, capture_output=True, text=True, cwd=str(proj))
+    result = subprocess.run(sysconfig_cmd, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", cwd=str(proj))
     if result.returncode != 0:
         return False, f"SysConfig failed:\n{result.stderr}\n{result.stdout}"
 
@@ -265,7 +265,8 @@ def main(
 
     gmake_cmd = [gmake, "-C", str(ticlang_dir)]
     print(f"[gmake] {' '.join(gmake_cmd)}")
-    result = subprocess.run(gmake_cmd, capture_output=True, text=True, cwd=str(ticlang_dir))
+    result = subprocess.run(gmake_cmd, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", cwd=str(ticlang_dir))
 
     if result.returncode != 0:
         return False, f"gmake failed:\n{result.stderr}\n{result.stdout}"

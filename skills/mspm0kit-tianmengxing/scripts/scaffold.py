@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 # Board-specific constants
@@ -140,17 +141,32 @@ def main(
 
     if not source_dir:
         if not config.get("sdk_examples"):
-            raise FileNotFoundError(
-                f"找不到示例 '{sdk_example}'，且 config.json 未配置 SDK 路径。\n"
-                "请先运行 `python scripts/setup.py` 配置工具链路径，\n"
-                "或提供 SDK 示例目录（例如 D:/TI/CCS/mspm0_sdk_2_05_01_00/examples/nortos/LP_MSPM0G3507/driverlib）。"
+            # Auto-run setup.py to configure paths
+            setup_script = Path(__file__).resolve().parent / "setup.py"
+            print("[scaffold] config.json 未配置 SDK 路径，自动运行 setup.py --auto-detect ...")
+            setup_result = subprocess.run(
+                ["python", str(setup_script), "--auto-detect"],
+                cwd=str(setup_script.parent),
             )
-        raise FileNotFoundError(
-            f"Example not found: {sdk_example}\n"
-            f"  Looked in: {skill_examples_dir}\n"
-            f"  Looked in: {sdk_examples_dir}\n"
-            "请确认示例名称正确，或检查 config.json 的 sdk_examples 路径。"
-        )
+            if setup_result.returncode == 0:
+                config = _load_config(
+                    config_path or str(Path(__file__).resolve().parents[1] / "config.json")
+                )
+                sdk_examples_dir = Path(config.get("sdk_examples", ""))
+                if sdk_examples_dir and (sdk_examples_dir / sdk_example).is_dir():
+                    source_dir = sdk_examples_dir / sdk_example
+            if not source_dir:
+                raise FileNotFoundError(
+                    f"找不到示例 '{sdk_example}'。setup.py 已运行但仍未找到示例。\n"
+                    "请手动检查 config.json 的 sdk_examples 路径。"
+                )
+        else:
+            raise FileNotFoundError(
+                f"Example not found: {sdk_example}\n"
+                f"  Looked in: {skill_examples_dir}\n"
+                f"  Looked in: {sdk_examples_dir}\n"
+                "请确认示例名称正确，或检查 config.json 的 sdk_examples 路径。"
+            )
 
     out = Path(output_dir or Path.cwd()) / project_name
     out.mkdir(parents=True, exist_ok=True)

@@ -7,143 +7,71 @@ requires: [mspm0-ccs]
 # mspm0kit — 天巧星 MSPM0G3519 Skill
 
 **Board**: Tianqiaoxing MSPM0G3519 custom development board (LQFP-64)
-**Toolchain**: CCS Theia + TI Arm Clang + SysConfig + DriverLib
 **SDK**: MSPM0 SDK 2.05.01.00
 
-## Workflow
+> 公共 Workflow / Tools / 延时 API / Macro patterns 见 `mspm0-ccs` skill 的 "Board Skill Workflow Template" 段。以下只记录本板 delta。
 
-When the user requests a new project, follow these four steps:
+## Board Overrides
 
-### Step 1 — Think
+### Clock Default
 
-> 🚀 **快路径判断（先做这一步）**：如果需求只是 **LED 闪烁 / GPIO 翻转 / 阻塞延时**（含"每 N 毫秒/秒闪一次"），那就**只配 LED 这一个 GPIO**，用 `delay_cycles(CPUCLK_FREQ / 1000 * 毫秒数)` 做延时——**不要配定时器、不要读 `pwm_timer.md`**。范本见 [peripherals/gpio.md](peripherals/gpio.md)。只有主循环要**并发做别的事**时才需要定时器。
+默认 **80 MHz** CPUCLK（40 MHz HFXT + PLL）。
 
-1. Identify the peripheral(s) the user wants (UART, GPIO, PWM, SPI, I2C, ADC, Timer).
-2. Check the pin table below to confirm target pins are available.
-3. Read the corresponding `peripherals/<peripheral>.md` for the SDK example name and pin mapping.
-4. **If I2C is involved:** Ask the user: "你需要软件 I2C（默认，GPIO 位模拟，任意引脚）还是硬件 I2C（更快更稳定，需使用 I2C 功能引脚）？"
-   - Software I2C (default): use `scaffold_oled.py` without `--i2c hw`
-   - Hardware I2C: use `--i2c hw`, verify pins against `references/hw_i2c_pins.md`
-5. Confirm clock needs (default: 80 MHz CPUCLK with 40 MHz HFXT).
+### Fast Path (Step 1 前置判断)
 
-### Step 2 — Plan
+如果需求只是 **LED 闪烁 / GPIO 翻转 / 阻塞延时**（含"每 N 毫秒/秒闪一次"），触发快路径：
 
-Tell the user what you're going to create:
+1. **只配 LED 那一个 GPIO**，用 `delay_cycles(CPUCLK_FREQ / 1000 * N)` 做延时
+2. **不要配定时器、不要读 `pwm_timer.md`**
+3. **跳过 Step 2 确认和 Step 3 SDK 权限询问** — 直接 scaffold → 写 .syscfg → build → flash
+4. 只有主循环要并发做别的事时才需要定时器
 
-- Project name and target directory
-- Which SDK example will be used as the template
-- Which pins will be configured
-- Clock configuration (default 80 MHz)
+快路径代码模板（精确控制亮灭）：
+```c
+#include "ti_msp_dl_config.h"
+int main(void) {
+    SYSCFG_DL_init();
+    while (1) {
+        DL_GPIO_setPins(GPIO_LED_PORT, GPIO_LED_PIN_PIN);
+        delay_cycles(CPUCLK_FREQ / 1000 * 100);   // 亮 100ms
+        DL_GPIO_clearPins(GPIO_LED_PORT, GPIO_LED_PIN_PIN);
+        delay_cycles(CPUCLK_FREQ / 1000 * 100);   // 灭 100ms
+    }
+}
+```
 
-Wait for confirmation before creating files, OR proceed if the user has indicated they want automatic execution.
+> 用户说"最快速度"/"一句话生成"时，等同于快路径触发 + 自动执行（不等确认）。
 
-**If the user is not satisfied with the plan:** Revise it based on their feedback, then **restate the complete revised plan** before writing any code. Do NOT jump straight to implementation — the user must see and approve the changes first. Repeat this loop until the user approves.
+### I2C Selection (Step 1 追加)
 
-### Step 3 — Code
+如果涉及 I2C，询问用户：
+- **软件 I2C**（默认）：GPIO 位模拟，任意引脚，用 `scaffold_oled.py` 不加 `--i2c hw`
+- **硬件 I2C**：更快更稳定，需使用 I2C 功能引脚，用 `--i2c hw`，验证引脚对照 `references/hw_i2c_pins.md`
 
-1. Ask: "是否允许我读取 SDK 目录（`<sdk_root>`）来复制例程模板？"
-2. On approval, run scaffold using the **full path** to the skill's scripts directory:
-   ```
-   python <skill_dir>/scripts/scaffold.py <project_name> <sdk_example_name> -o <project_parent_dir>
-   ```
-   The scripts live in the skill install directory, NOT in the project directory. Use the full path every time.
+### Extra Tool — scaffold_oled.py
 
-   **Skill install path varies by agent platform** — locate it FIRST (don't assume `.claude`):
-   - Claude Code (Linux/macOS): `~/.claude/skills/mspm0kit-tianqiaoxing/scripts/`
-   - Claude Code (Windows): `C:/Users/<user>/.claude/skills/mspm0kit-tianqiaoxing/scripts/`
-   - Reasonix (Windows): `C:/Users/<user>/.reasonix/skills/mspm0kit-tianqiaoxing/scripts/`
-   - Codex/其他 Agent: `C:/Users/<user>/.agents/skills/mspm0kit-tianqiaoxing/scripts/`
-   - 通用自发现（一条命令）: `ls ~/.claude/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null || ls ~/.reasonix/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null || ls ~/.agents/skills/mspm0kit-tianqiaoxing/scripts 2>/dev/null`
+```
+python <skill_dir>/scripts/scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]
+```
+生成 OLED UI 工程（含字库/菜单框架）。
 
-   记下找到的目录作为 `<skill_dir>`，**后续 cleanup.py / build.py / flash.py 全部复用这个目录**，不要再逐个猜路径。
+### R4: Generated Macro Verification (SDK 2.04 bug)
 
-   > ⚠️ **不要用 `cmd /c "python ..."` 包裹脚本调用**：`cmd /c` 会吞掉 Python 的 stdout（scaffold 打印的中文提示会丢失，让你误以为失败）。直接 `python "<全路径>/scaffold.py" ...` 即可。
-3. If the user needs custom behavior beyond the SDK example, edit the generated `.syscfg` first.
-4. **After editing `.syscfg`, BEFORE writing the `.c`, fetch the ground-truth macro names** — never guess them:
-   ```
-   python <skill_dir>/scripts/build.py <project_dir> --sysconfig-only
-   ```
-   This runs SysConfig once and prints every generated macro (`*_PORT`, `*_PIN`, `*_INST`, `*_IIDX`, ...) from `ti_msp_dl_config.h`. Write the `.c` using those EXACT names. This eliminates the first-build failure caused by guessed macros.
-5. All pin changes go through `.syscfg` — never hand-edit generated `ti_msp_dl_config.*` files.
-6. **After scaffold completes, ask the user:** "工程已生成，是否要我帮你编译测试？"
-   - If yes → proceed to Step 4 (build + report errors)
-   - If no → just print the project path and usage instructions
-
-### Step 4 — Verify
-
-0. **MANDATORY: Run cleanup before building (every time):**
-   ```bash
-   python <skill_dir>/scripts/cleanup.py <project_dir>
-   ```
-   Use the **full path** to cleanup.py (same directory as scaffold.py above).
-   This automatically:
-   - Moves .c files from subdirectories to root (CCS flat rule)
-   - Deletes duplicate .c files
-   - Removes generated files from root (device_linker.cmd, ti_msp_dl_config.*, etc.)
-   - Removes ticlang/ directory (conflicts with CCS Debug/)
-   **Build MUST NOT proceed until cleanup returns success.**
-
-1. Run build:
-   ```
-   python <skill_dir>/scripts/build.py <project_dir> --yes
-   ```
-   `--yes` 跳过交互确认。非交互环境下必须加此参数，否则 `input()` 会抛 EOFError。
-2. If build fails: read the error, fix the issue, retry (max 3 times).
-3. If build succeeds: report the `.out` file path and provide the flash command.
-4. Macro names should already be correct (Step 3 fetched them via `--sysconfig-only` before the `.c` was written). If you skipped that step and hit an undefined-macro error, read `ti_msp_dl_config.h` to confirm the real names — never guess them.
-
-## Core Rules
-
-### R0: 4-Layer Embedded Architecture (HIGHEST PRIORITY)
-
-`main.c` → `hal/hal_*.c/h` → `bsp/bsp_*.c/h` → `middleware/` → `app/app_*.c/h` → `targetConfigs/`
-
-Each module is self-contained: `.c` and `.h` live together. For simple projects, `main.c` is acceptable.
-
-### R1: Generated Files
-
-- **Never edit** generated files: `ti_msp_dl_config.c`, `ti_msp_dl_config.h`.
-- **Never create** `device_linker.cmd`, `device.cmd.genlibs`, `device.opt` — CCS auto-generates them in `Debug/`.
-- **Never create** a `ticlang/` directory — it conflicts with CCS's `Debug/` build system.
-- If CCS left stale generated files in root after a failed import, delete them before building.
-
-### R2: SysConfig is the Source of Truth
-
-- `.syscfg` is the sole source of truth for pins, peripherals, clocks, interrupts, and DMA.
-- Prefer SysConfig + DriverLib over register-level code.
-- Don't guess generated macro names. Read the generated header after SysConfig runs.
-- If SysConfig emits warnings, report them — don't call it "clean".
-- If hardware behavior is unverified, say "verification stopped at compile level".
-
-**Macro name patterns (reference only — always verify against `ti_msp_dl_config.h`):**
-
-| 外设 | `$name` 示例 | 典型宏 |
-|------|-------------|--------|
-| UART | `UART_0` | `UART_0_INST`, `UART_0_INST_INT_IRQN` |
-| GPIO 输出 | `GPIO_LED` | `GPIO_LED_PORT`, `GPIO_LED_PIN_PIN` |
-| GPIO 输入 | `GPIO_BTN` | `GPIO_BTN_PORT`, `GPIO_BTN_BTN_PIN_PIN`, `GPIO_BTN_INT_IIDX` |
-| Timer | `TIMER_TICK` | `TIMER_TICK_INST`, `TIMER_TICK_INST_IRQHandler` |
-| PWM | `PWM_0` | `PWM_0_INST`, `GPIO_PWM_0_C0_IDX` |
-| ADC | `ADC12_0` | `ADC12_0_INST`, `ADC12_0_INST_INT_IRQN` |
-
-### R3: External Path Access
-
-- Do NOT ask for path permission upfront. Try the operation first.
-- Only when a script fails due to missing/invalid paths, follow the Path Configuration flow above.
-- After paths are configured, access CCS/SDK files without re-prompting each time.
-
-### R4: Generated Macro Verification (CRITICAL)
-
-SDK 2.04 + SysConfig 1.27 的 LQFP-64(PM) 有引脚映射 bug：生成的 `_PORT`/`_PIN` 宏可能指向错误端口。
+SDK 2.04 + SysConfig 1.27 的 LQFP-64(PM) 有引脚映射 bug：`_PORT`/`_PIN` 宏可能指向错误端口。
 - SysConfig 后必须 grep `ti_msp_dl_config.h` 验证宏值
 - 宏错误时直接用 `GPIOB, DL_GPIO_PIN_22` 等具体值
 - `DL_GPIO_initDigitalOutput()` 只配 IOMUX，必须额外调 `DL_GPIO_enableOutput()`
-- 升级到 SDK >= 2.05.01.01 解决此 bug
+- 升级到 SDK >= 2.05.01.01 可解决
 
 ### R5: Pin Table is Authoritative
 
-选引脚前必须查 Pin Table。黄色标注（外设引脚功能标注表.xlsx）的引脚不可使用。用户要求占用引脚时须明确警告。
+选引脚前必须查下方 Pin Table。黄色标注引脚不可使用。用户要求占用引脚时须明确警告。
 
+### Architecture
+
+`main.c` → `hal/hal_*.c/h` → `bsp/bsp_*.c/h` → `middleware/` → `app/app_*.c/h`
+
+简单项目保持 `main.c` 即可。
 
 ## Pin Table — Tianqiaoxing MSPM0G3519
 
@@ -187,26 +115,3 @@ SDK 2.04 + SysConfig 1.27 的 LQFP-64(PM) 有引脚映射 bug：生成的 `_PORT
 ### Free Pins (available for user assignment)
 
 All other pins not listed above. The board uses LQFP-64(PM) package.
-
-## Path Configuration
-
-`config.json` 存储工具链路径。流程：先直接运行脚本 → 失败了再问用户路径 → 路径不存在时问是否自动搜索 → 用户同意后搜索 C/D/E 盘常见位置（`D:/TI/CCS/ccs`, `mspm0_sdk*` 等）→ 找到后写入 config.json → 重试。
-
-## Tools
-
-| Script | Purpose |
-|--------|---------|
-| `setup.py` | First-time path configuration |
-| `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
-| `build.py <project_dir> --sysconfig-only` | Run SysConfig only, print generated macros (call BEFORE writing the .c) |
-| `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
-| `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
-| `serial_console.py -p <port> -b <baud>` | Serial monitor |
-| `cleanup.py <project_dir>` | **MANDATORY before build** |
-| `scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]` | Generate OLED UI project |
-
-> All scripts are in the skill install directory（路径因 Agent 平台而异，见 Step 3 的 `<skill_dir>` 自发现命令）。Use full path when calling.
-
-## Reference
-
-For detailed SysConfig/DriverLib usage and debugging, also refer to the `mspm0-ccs` skill's reference docs.

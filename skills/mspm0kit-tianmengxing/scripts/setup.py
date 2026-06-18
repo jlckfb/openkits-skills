@@ -31,7 +31,7 @@ CHIP = "MSPM0G3507"
 # ── sensible fallback defaults (only used when auto-detect finds nothing) ──
 DEFAULTS = {
     "ccs_root": r"D:\TI\CCS\ccs",
-    "sdk_root": r"D:\TI\CCS\mspm0_sdk_2_05_01_00",
+    "sdk_root": "",  # auto-detect via _find_sdk(); no hardcoded version
     "probe": "XDS110",
     "chip": CHIP,
 }
@@ -98,7 +98,7 @@ def _find_sdk(ccs_root: str) -> str:
                 if examples.is_dir():
                     candidates.append((name, str(entry)))
     if not candidates:
-        return DEFAULTS["sdk_root"]
+        return ""
     # Prefer newest SDK (sort by name, which includes version)
     candidates.sort(reverse=True)
     print(f"[auto-detect] found {len(candidates)} SDK(s): {', '.join(c[0] for c in candidates)}")
@@ -176,12 +176,12 @@ def build_config(
 
     # SDK: use provided, validate, or search (prefer newest)
     sdk = sdk_root or DEFAULTS["sdk_root"]
-    if not _is_dir(sdk):
-        print(f"[warn] SDK not found: {sdk} — auto-searching...")
+    if not sdk or not _is_dir(sdk):
+        if sdk:
+            print(f"[warn] SDK not found: {sdk} — auto-searching...")
         sdk = _find_sdk(ccs)
-    if not _is_dir(sdk):
-        sdk = DEFAULTS["sdk_root"]
-        print(f"[warn] SDK fallback to default: {sdk}")
+    if not sdk or not _is_dir(sdk):
+        print("[warn] SDK auto-detect failed — please provide --sdk-root manually")
 
     print(f"[setup] CCS  : {ccs}")
     print(f"[setup] SDK  : {sdk}")

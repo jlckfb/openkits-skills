@@ -31,50 +31,88 @@ Use this skill for TI MSPM0 firmware projects that use SysConfig and DriverLib t
 - If SysConfig emits warnings, report them separately from build/flash success. Do not call a warning-producing generation "clean".
 - If hardware behavior is not verified on a connected board, say that validation stopped at source, SysConfig, or build level.
 
-## Board-Specific Pin Caution
+## Board Skill Workflow Template
 
-### Custom MSPM0G3519 Board (LQFP-64)
+Board skills (`mspm0kit-*`) that `requires: [mspm0-ccs]` share the following scaffold → build → flash workflow. Board SKILL.md should only document their **delta** (pin table, clock defaults, board-specific overrides) and reference this section for the common flow.
 
-When the project targets the custom MSPM0G3519 development board (`--device "MSPM0G3519" --package "LQFP-64(PM)"`):
+### Skill Path Discovery
 
-**Completely unusable — never assign to any peripheral:**
-- PA2: frequency accuracy control, not routed to header
-- PA5, PA6: 40 MHz HFXT crystal, system clock source
-- PA19, PA20: SWDIO / SWCLK debug interface
+Scripts live in the skill install directory, NOT in the project directory. Locate once, reuse everywhere:
+- Claude Code (Linux/macOS): `~/.claude/skills/<skill-name>/scripts/`
+- Claude Code (Windows): `C:/Users/<user>/.claude/skills/<skill-name>/scripts/`
+- Reasonix (Windows): `C:/Users/<user>/.reasonix/skills/<skill-name>/scripts/`
+- Codex/其他 Agent: `C:/Users/<user>/.agents/skills/<skill-name>/scripts/`
+- 通用自发现: `ls ~/.claude/skills/<skill-name>/scripts 2>/dev/null || ls ~/.reasonix/skills/<skill-name>/scripts 2>/dev/null || ls ~/.agents/skills/<skill-name>/scripts 2>/dev/null`
 
-**PA18 — BSL caution:**
-- PA18 is the BSL entry pin and the onboard BACK button (PULL_DOWN in normal use).
-- If PA18 is high at reset, the device enters BSL mode and user firmware will not run.
-- Do not drive PA18 high at power-on. Warn the user before assigning PA18 to any output or external signal that could be high at reset.
+> ⚠️ 不要用 `cmd /c "python ..."` 包裹脚本调用 — `cmd /c` 会吞掉 stdout。直接 `python "<全路径>/script.py" ...` 即可。
 
-**Already occupied by board peripherals — do not reassign without user confirmation:**
+### Common Workflow Steps
 
-| Pin(s) | Occupied by |
-|--------|-------------|
-| PA0, PA1 | Software I2C — OLED (SDA/SCL), board has 2.2 kΩ pull-ups; I2C bus can share additional devices |
-| PA10, PA11 | UART0 TX/RX — onboard CH340; header pins can be shared |
-| PA27, PA28 | Software I2C — LSM6DS3 IMU (SCL/SDA) |
-| PB6, PB7, PB8, PB9 | SPI1 — W25Q128 Flash (CS/MISO/MOSI/SCLK) |
-| PB17, PB18 | UART7 TX/RX — onboard 2.4 GHz wireless module |
-| PB21 | User button ENTER (PULL_UP, active-low) |
-| PB22 | Onboard LED (active-low, PULL_DOWN) |
-| PB23 | Wireless link-status input (PULL_DOWN) |
-| PB26 | TIMA1 CCP0 — WS2812 RGB LED PWM |
-| PB27 | TIMG6 CCP1 — buzzer PWM |
+**Step 1 — Think**: Identify peripherals → check board pin table → read `peripherals/<name>.md` → confirm clock.
 
-**Optional peripherals — can be released if not used:**
-- PA29, PA30: QEI encoder PHA/PHB (TIMG8 CCP0/CCP1)
-- PA31: Encoder SW button (PULL_UP)
+**Step 2 — Plan**: Tell the user: project name, SDK example template, pin configuration, clock config. Wait for confirmation. If the user rejects, restate revised plan before writing code.
 
-When the user asks to choose a free pin, prefer pins not listed above. If the user explicitly requests an occupied pin, explain the conflict and ask for confirmation before proceeding.
+**Step 3 — Code**:
+1. Run scaffold: `python <skill_dir>/scripts/scaffold.py <name> <example> -o <dir>`
+2. Edit `.syscfg` if custom behavior is needed.
+3. **Before writing `.c`**, fetch ground-truth macros: `python <skill_dir>/scripts/build.py <project_dir> --sysconfig-only`
+4. Write `.c` using EXACT macro names from output.
+5. Ask: "工程已生成，是否要我帮你编译测试？"
 
-### LCKFB Tianmengxing MSPM0G3507
+**Step 4 — Verify**:
+1. **MANDATORY**: `python <skill_dir>/scripts/cleanup.py <project_dir>` (moves .c to root, removes stale generated files, removes ticlang/)
+2. Build: `python <skill_dir>/scripts/build.py <project_dir> --yes` (`--yes` 跳过交互确认，agent 必须加)
+3. If build fails: read error, fix, retry (max 3).
+4. If build succeeds: report `.out` path + provide flash command.
 
-When the user explicitly says the board is LCKFB Tianmengxing MSPM0G3507:
+**Flash**: `python <skill_dir>/scripts/flash.py <project_dir>` — auto-selects DSLite (XDS110) or JLink based on `config.json` probe field.
 
-- Avoid choosing A21/PA21, A23/PA23, A02/PA02, A18/PA18, A10/PA10, and A11/PA11 for ordinary user-requested pin assignments unless the user asks for those pins or the local project already deliberately uses them.
-- If the user asks to drive or reuse one of those pins, remind them that the Tianmengxing documentation marks these as special pins and says they should not be used unless necessary.
-- Do not silently move an existing project away from these pins. Explain the board caveat first, then ask or proceed according to the user's intent.
+### Delay API
+
+MSPM0 DriverLib **没有** `DL_Delay_ms()` / `DL_Delay_us()`。唯一延时 API: `delay_cycles(n)` (定义在 `dl_core.h`)。
+
+**简单延时（闪烁/消抖）直接用 `delay_cycles`，不要配定时器外设**：
+```c
+delay_cycles(CPUCLK_FREQ / 1000 * N);  // 延时 N 毫秒
+```
+只有需要**非阻塞/并发触发**时才用 Timer 中断。
+
+### STOP2 Trap
+
+使用 SysTick/Timer 中断驱动实时任务时，**禁止** `SYSCTL.powerPolicy = "STOP2"` 或 `__WFI()`。STOP2 关闭 MCLK，所有 ISR 停止。默认保持 RUN 模式。
+
+### Macro Name Patterns (reference — always verify against `ti_msp_dl_config.h`)
+
+| 外设 | `$name` 示例 | 典型宏 |
+|------|-------------|--------|
+| UART | `UART_0` | `UART_0_INST`, `UART_0_INST_INT_IRQN` |
+| GPIO 输出 | `GPIO_LED` | `GPIO_LED_PORT`, `GPIO_LED_PIN_PIN` |
+| GPIO 输入 | `GPIO_BTN` | `GPIO_BTN_PORT`, `GPIO_BTN_BTN_PIN_PIN`, `GPIO_BTN_INT_IIDX` |
+| Timer | `TIMER_TICK` | `TIMER_TICK_INST`, `TIMER_TICK_INST_IRQHandler` |
+| PWM | `PWM_0` | `PWM_0_INST`, `GPIO_PWM_0_C0_IDX` |
+| ADC | `ADC12_0` | `ADC12_0_INST`, `ADC12_0_INST_INT_IRQN` |
+
+### Board Skill Tools (common set)
+
+| Script | Purpose |
+|--------|---------|
+| `setup.py` | First-time path configuration (`--auto-detect --probe JLink`) |
+| `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
+| `build.py <project_dir> --sysconfig-only` | Run SysConfig only, print generated macros |
+| `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
+| `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
+| `serial_console.py -p <port> -b <baud>` | Serial monitor |
+| `cleanup.py <project_dir>` | **MANDATORY before build** |
+
+### Path Configuration
+
+`config.json` 存储工具链路径，位于 skill 根目录。
+
+**自动扫描（推荐）**: `python <skill_dir>/scripts/setup.py --auto-detect --probe JLink`
+
+**手动指定**: `python <skill_dir>/scripts/setup.py --accept-defaults --ccs-root <path> --sdk-root <path> --probe JLink`
+
+Agent 应先尝试直接 scaffold/build，失败后再跑 setup。
 
 ## Project Shape Checks
 
