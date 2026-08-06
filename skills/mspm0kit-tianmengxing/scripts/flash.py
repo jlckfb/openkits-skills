@@ -29,11 +29,17 @@ def main(project_dir: str, config_path: str | None = None) -> None:
     probe = config.get("probe", "XDS110").upper()
 
     proj = Path(project_dir).resolve()
-    out_files = list(proj.glob("ticlang/*.out"))
-    if not out_files:
+    # 查找 .out：优先 ticlang/（CLI 构建），其次 Debug/、Release/（CCS IDE 构建），最后全目录递归
+    out_candidates: list[Path] = []
+    for sub in ("ticlang", "Debug", "Release"):
+        out_candidates.extend(proj.glob(f"{sub}/*.out"))
+    if not out_candidates:
+        out_candidates = list(proj.rglob("*.out"))
+    if not out_candidates:
         print("Error: no .out file found. Run build.py first.")
         sys.exit(1)
-    out_file = out_files[0]
+    out_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    out_file = out_candidates[0]
 
     if probe in ("JLINK", "J-LINK", "JLINK_COMMANDER"):
         _flash_jlink(out_file, chip, config)
