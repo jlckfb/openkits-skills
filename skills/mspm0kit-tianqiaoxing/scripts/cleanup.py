@@ -60,6 +60,17 @@ def main(project_dir: str) -> int:
             print(f"[warn] could not remove ticlang/ (file in use): {e}")
             print("[warn] ticlang/ left intact — build will overwrite it, this is safe to ignore")
 
+    # 3b. Remove gcc/ (GCC linker scripts — ticlang can't parse them, and CCS
+    #     linker will fail with "cannot find file REGION_ALIAS" if present)
+    gcc_dir = proj / "gcc"
+    if gcc_dir.is_dir():
+        try:
+            shutil.rmtree(gcc_dir)
+            print("[dir] removed gcc/ (GCC linker scripts not needed for ticlang)")
+            fixed += 1
+        except PermissionError as e:
+            print(f"[warn] could not remove gcc/: {e}")
+
     # 4. Remove leftover src/ directory (from old flat-structure scaffold)
     src_dir = proj / "src"
     if src_dir.is_dir():

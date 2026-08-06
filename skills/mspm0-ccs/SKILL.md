@@ -60,7 +60,7 @@ Scripts live in the skill install directory, NOT in the project directory. Locat
 5. Ask: "工程已生成，是否要我帮你编译测试？"
 
 **Step 4 — Verify**:
-1. Build: `python <skill_dir>/scripts/build.py <project_dir> --yes` (`--yes` 跳过交互确认，agent 必须加。build.py 内置自动清理：仅在检测到 stale 文件时才执行，新项目零开销)
+1. Build: `python <skill_dir>/scripts/build.py <project_dir> --yes --ccs-ready` (`--yes` 跳过交互确认，`--ccs-ready` 编译后自动清理 gmake 残留物保证 CCS IDE 兼容，agent 必须加这两个参数)
 2. If build fails: read error, fix, retry (max 3).
 3. If build succeeds: report `.out` path + provide flash command.
 
@@ -97,11 +97,12 @@ delay_cycles(CPUCLK_FREQ / 1000 * N);  // 延时 N 毫秒
 |--------|---------|
 | `setup.py` | First-time path configuration (`--auto-detect --probe JLink`) |
 | `scaffold.py <name> <example> -o <dir>` | Generate CCS project |
+| `build.py <project_dir> --yes --ccs-ready` | SysConfig CLI + gmake compile, post-cleanup for CCS IDE |
+| `build.py <project_dir> --clean` | Only run post-build cleanup (no build) |
 | `build.py <project_dir> --sysconfig-only` | Run SysConfig only, print generated macros |
-| `build.py <project_dir> --yes` | SysConfig CLI + gmake compile |
 | `flash.py <project_dir>` | Flash (XDS110: DSLite / JLINK: JLink.exe) |
 | `serial_console.py -p <port> -b <baud>` | Serial monitor |
-| `cleanup.py <project_dir>` | Legacy standalone cleanup (now built into build.py) |
+| `cleanup.py <project_dir>` | Standalone cleanup: remove gmake artifacts, duplicate .c, gcc/ |
 
 ### Path Configuration
 

@@ -112,6 +112,193 @@ def _write_projectspec(out: Path, project_name: str, example_name: str) -> None:
     (out / f"{project_name}.projectspec").write_text(spec, encoding="utf-8")
 
 
+def _generate_eclipse_files(out: Path, project_name: str) -> None:
+    """Generate CCS IDE Eclipse project files (.project, .cproject, .ccsproject, targetConfigs/).
+    
+    scaffold.py generates gmake-only projects; CCS IDE needs these XML descriptors
+    to recognize the project and configure the toolchain. Without them, CCS shows
+    "no projects found" or fails with linker errors (duplicate device_linker.cmd,
+    conflicting object files from ticlang/ left by gmake).
+    """
+    print("[eclipse] generating CCS IDE project files ...")
+
+    # .project
+    project_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+\t<name>{project_name}</name>
+\t<comment></comment>
+\t<projects>
+\t</projects>
+\t<buildSpec>
+\t\t<buildCommand>
+\t\t\t<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
+\t\t\t<arguments>
+\t\t\t</arguments>
+\t\t</buildCommand>
+\t</buildSpec>
+\t<natures>
+\t\t<nature>com.ti.ccstudio.core.ccsNature</nature>
+\t\t<nature>org.eclipse.cdt.core.cnature</nature>
+\t\t<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
+\t\t<nature>org.eclipse.cdt.core.ccnature</nature>
+\t</natures>
+</projectDescription>'''
+    (out / ".project").write_text(project_xml, encoding="utf-8", newline='\n')
+    print("  .project ✓")
+
+    # .cproject (TICLANG 5.1 toolchain, Debug config, MSPM0G3519)
+    cproject_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+\t<storageModule moduleId="org.eclipse.cdt.core.settings">
+\t\t<cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.177120646">
+\t\t\t<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.177120646" moduleId="org.eclipse.cdt.core.settings" name="Debug">
+\t\t\t\t<externalSettings/>
+\t\t\t\t<extensions>
+\t\t\t\t\t<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+\t\t\t\t\t<extension id="org.eclipse.cdt.core.GASErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+\t\t\t\t\t<extension id="com.ti.ccs.errorparser.SysConfigErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+\t\t\t\t\t<extension id="org.eclipse.cdt.core.GCCErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+\t\t\t\t\t<extension id="com.ti.ccs.errorparser.CompilerErrorParser_TI" point="com.ti.ccs.project.ErrorParser"/>
+\t\t\t\t</extensions>
+\t\t\t</storageModule>
+\t\t\t<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+\t\t\t\t<configuration artifactExtension="out" artifactName="${{ProjName}}" buildProperties="" cleanCommand="${{CG_CLEAN_CMD}}" description="" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.177120646" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug">
+\t\t\t\t\t<folderInfo id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.177120646." name="/" resourcePath="">
+\t\t\t\t\t\t<toolChain id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.DebugToolchain.57600662" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.linkerDebug.1415947144">
+\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.247759668" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
+\t\t\t\t\t\t\t\t<listOptionValue value="DEVICE_CONFIGURATION_ID=Cortex M.MSPM0G3519"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="DEVICE_CORE_ID="/>
+\t\t\t\t\t\t\t\t<listOptionValue value="DEVICE_ENDIANNESS=little"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="OUTPUT_FORMAT=ELF"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="CCS_MBS_VERSION=70.0.0"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="RUNTIME_SUPPORT_LIBRARY="/>
+\t\t\t\t\t\t\t\t<listOptionValue value="OUTPUT_TYPE=executable"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="PRODUCTS=MSPM0-SDK:2.10.0.04;sysconfig:1.26.2;"/>
+\t\t\t\t\t\t\t\t<listOptionValue value="PRODUCT_MACRO_IMPORTS={{&quot;MSPM0-SDK&quot;:[&quot;${{COM_TI_MSPM0_SDK_INCLUDE_PATH}}&quot;,&quot;${{COM_TI_MSPM0_SDK_LIBRARY_PATH}}&quot;,&quot;${{COM_TI_MSPM0_SDK_LIBRARIES}}&quot;,&quot;${{COM_TI_MSPM0_SDK_SYMBOLS}}&quot;,&quot;${{COM_TI_MSPM0_SDK_SYSCONFIG_MANIFEST}}&quot;],&quot;sysconfig&quot;:[&quot;${{SYSCONFIG_TOOL_INCLUDE_PATH}}&quot;,&quot;${{SYSCONFIG_TOOL_LIBRARY_PATH}}&quot;,&quot;${{SYSCONFIG_TOOL_LIBRARIES}}&quot;,&quot;${{SYSCONFIG_TOOL_SYMBOLS}}&quot;,&quot;${{SYSCONFIG_TOOL_SYSCONFIG_MANIFEST}}&quot;]}}"/>
+\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION.27094809" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION" value="TICLANG_5.1.1.LTS" valueType="string"/>
+\t\t\t\t\t\t\t<targetPlatform id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.targetPlatformDebug.1162388228" name="Platform" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.targetPlatformDebug"/>
+\t\t\t\t\t\t\t<builder buildPath="${{BuildDirectory}}" id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.builderDebug.1738102857" keepEnvironmentInBuildfile="false" name="GNU Make" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.builderDebug"/>
+\t\t\t\t\t\t\t<tool id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.compilerDebug.2105042851" name="Arm Compiler" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.compilerDebug">
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.GENERATE_DWARF_DEBUG.401189189" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.GENERATE_DWARF_DEBUG" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.GENERATE_DWARF_DEBUG.GDWARF_3" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.ENDIAN_NESS__BIG_LITTLE.1796597516" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.ENDIAN_NESS__BIG_LITTLE" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.ENDIAN_NESS__BIG_LITTLE.MLITTLE_ENDIAN" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.INCLUDE_PATH.202069370" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.INCLUDE_PATH" valueType="includePath">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_INCLUDE_PATH}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{SYSCONFIG_TOOL_INCLUDE_PATH}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{PROJECT_ROOT}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{PROJECT_ROOT}}/${{ConfigName}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_INSTALL_DIR}}/source/third_party/CMSIS/Core/Include"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_INSTALL_DIR}}/source"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.DEFINE.1171674967" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.DEFINE" valueType="definedSymbols">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_SYMBOLS}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{SYSCONFIG_TOOL_SYMBOLS}}"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.OPT_LEVEL.1611300752" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.OPT_LEVEL" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.OPT_LEVEL.2" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.CMD_FILE.1013797883" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.CMD_FILE" valueType="stringList">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="device.opt"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MCPU.254930875" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MCPU" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MCPU.cortex-m0plus" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MARCH.791115353" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MARCH" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MARCH.thumbv6m" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MFLOAT_ABI.265744036" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MFLOAT_ABI" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.MFLOAT_ABI.soft" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.SELECT_PROCESSOR_MODE__ARM_THUMB.913902047" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.SELECT_PROCESSOR_MODE__ARM_THUMB" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.SELECT_PROCESSOR_MODE__ARM_THUMB.MTHUMB" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.WALL.816110379" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.compilerID.WALL" value="true" valueType="boolean"/>
+\t\t\t\t\t\t\t</tool>
+\t\t\t\t\t\t\t<tool id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.linkerDebug.1415947144" name="Arm Linker" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.exe.linkerDebug">
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.OUTPUT_FILE.2059858764" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.OUTPUT_FILE" value="${{ProjName}}.out" valueType="string"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.MAP_FILE.1872248760" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.MAP_FILE" value="${{ProjName}}.map" valueType="string"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.XML_LINK_INFO.723197541" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.XML_LINK_INFO" value="${{ProjName}}_linkInfo.xml" valueType="string"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.DISPLAY_ERROR_NUMBER.420099269" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.DIAG_WRAP.1027845605" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.DIAG_WRAP" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.DIAG_WRAP.off" valueType="enumerated"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.REREAD_LIBS.1467602445" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.REREAD_LIBS" value="false" valueType="boolean"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.SEARCH_PATH.1793770240" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.SEARCH_PATH" valueType="libPaths">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_LIBRARY_PATH}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{SYSCONFIG_TOOL_LIBRARY_PATH}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_INSTALL_DIR}}/source"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{PROJECT_ROOT}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{PROJECT_BUILD_DIR}}/syscfg"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{CG_TOOL_ROOT}}/lib"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.LIBRARY.1531956989" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.linkerID.LIBRARY" valueType="libs">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_LIBRARIES}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{SYSCONFIG_TOOL_LIBRARIES}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="device.cmd.genlibs"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="libc.a"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t</tool>
+\t\t\t\t\t\t\t<tool id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.hex.503727053" name="Arm Hex Utility" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.hex"/>
+\t\t\t\t\t\t\t<tool id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.objcopy.1495648398" name="Arm Objcopy Utility" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_5.1.objcopy"/>
+\t\t\t\t\t\t\t<tool id="com.ti.ccstudio.buildDefinitions.sysConfig.507511065" name="SysConfig" superClass="com.ti.ccstudio.buildDefinitions.sysConfig">
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS.1056456156" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS" valueType="stringList">
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{COM_TI_MSPM0_SDK_SYSCONFIG_MANIFEST}}"/>
+\t\t\t\t\t\t\t\t\t<listOptionValue value="${{SYSCONFIG_TOOL_SYSCONFIG_MANIFEST}}"/>
+\t\t\t\t\t\t\t\t</option>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.sysConfig.OUTPUT_DIR__MANUAL.391912566" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.OUTPUT_DIR__MANUAL" value="." valueType="string"/>
+\t\t\t\t\t\t\t\t<option id="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE.1174697540" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE" value="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE.manual" valueType="enumerated"/>
+\t\t\t\t\t\t\t</tool>
+\t\t\t\t\t\t</toolChain>
+\t\t\t\t\t</folderInfo>
+\t\t\t\t</configuration>
+\t\t\t</storageModule>
+\t\t\t<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+\t\t</cconfiguration>
+\t</storageModule>
+\t<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+\t\t<project id="{project_name}.com.ti.ccstudio.buildDefinitions.TMS470.ProjectType.1180988702" name="TMS470" projectType="com.ti.ccstudio.buildDefinitions.TMS470.ProjectType"/>
+\t</storageModule>
+</cproject>'''
+    (out / ".cproject").write_text(cproject_xml, encoding="utf-8", newline='\n')
+    print("  .cproject ✓")
+
+    # .ccsproject
+    ccsproject_xml = f'''<?xml version="1.0" encoding="UTF-8" ?>
+<?ccsproject version="1.0"?>
+<projectOptions>
+\t<ccsVariant value="50:Theia-based"/>
+\t<ccsVersion value="71.0.0"/>
+\t<deviceFamily value="TMS470"/>
+\t<connection value="common/targetdb/connections/TIXDS110_Connection.xml"/>
+\t<executableActions value=""/>
+\t<createSlaveProjects value=""/>
+\t<ignoreDefaultDeviceSettings value="true"/>
+\t<ignoreDefaultCCSSettings value="true"/>
+\t<templateProperties value="id=empty_LP_MSPM0G3519_nortos_ticlang.projectspec.{project_name},buildProfile=release,isHybrid=true"/>
+\t<activeTargetConfiguration value="targetConfigs/MSPM0G3519.ccxml"/>
+\t<isTargetConfigurationManual value="false"/>
+\t<filesToOpen value="{project_name}.syscfg,main.c"/>
+</projectOptions>'''
+    (out / ".ccsproject").write_text(ccsproject_xml, encoding="utf-8", newline='\n')
+    print("  .ccsproject ✓")
+
+    # targetConfigs/MSPM0G3519.ccxml (XDS110 debug probe configuration)
+    tc_dir = out / "targetConfigs"
+    tc_dir.mkdir(exist_ok=True)
+    ccxml = '''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configurations XML_version="1.2" id="configurations_0">
+    <configuration XML_version="1.2" id="configuration_0">
+        <instance XML_version="1.2" desc="Texas Instruments XDS110 USB Debug Probe" href="connections/TIXDS110_Connection.xml" id="Texas Instruments XDS110 USB Debug Probe" xml="TIXDS110_Connection.xml" xmlpath="connections"/>
+        <connection XML_version="1.2" id="Texas Instruments XDS110 USB Debug Probe">
+            <instance XML_version="1.2" href="drivers/tixds510cs_dap.xml" id="drivers" xml="tixds510cs_dap.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/tixds510cortexM0.xml" id="drivers" xml="tixds510cortexM0.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/tixds510sec_ap.xml" id="drivers" xml="tixds510sec_ap.xml" xmlpath="drivers"/>
+            <property Type="choicelist" Value="1" id="The JTAG TCLK Frequency (MHz)">
+                <choice Name="Fixed with user specified value" value="SPECIFIC">
+                    <property Type="stringfield" Value="1MHz" id="-- Enter a value from 100.0kHz to 2.5MHz"/>
+                </choice>
+            </property>
+            <property Type="choicelist" Value="2" id="SWD Mode Settings">
+                <choice Name="SWD Mode - Aux COM port is target TDO pin" value="nothing"/>
+            </property>
+            <platform XML_version="1.2" id="platform_0">
+                <instance XML_version="1.2" desc="MSPM0G3519" href="devices/MSPM0G3519.xml" id="MSPM0G3519" xml="MSPM0G3519.xml" xmlpath="devices"/>
+            </platform>
+        </connection>
+    </configuration>
+</configurations>'''
+    (tc_dir / "MSPM0G3519.ccxml").write_text(ccxml, encoding="utf-8", newline='\n')
+    print("  targetConfigs/MSPM0G3519.ccxml ✓")
+
+
 def main(
     project_name: str,
     sdk_example: str,
@@ -272,6 +459,9 @@ def main(
     else:
         # Generate minimal .projectspec for skill-bundled examples
         _write_projectspec(out, project_name, sdk_example)
+
+    # 4. Generate CCS IDE Eclipse project files
+    _generate_eclipse_files(out, project_name)
 
     return out
 

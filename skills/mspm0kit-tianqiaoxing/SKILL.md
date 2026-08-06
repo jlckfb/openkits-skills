@@ -51,9 +51,11 @@ hfxt.peripheral.hfxOutPin.$assign = "PA6";
 
 **快路径完整命令（一次 tool call 链式执行）**：
 ```
-python <skill_dir>/scripts/scaffold.py <name> blink -o <dir>; python <skill_dir>/scripts/build.py <dir>/<name> --yes; python <skill_dir>/scripts/flash.py <dir>/<name>
+python <skill_dir>/scripts/scaffold.py <name> blink -o <dir>; python <skill_dir>/scripts/build.py <dir>/<name> --yes --ccs-ready; python <skill_dir>/scripts/flash.py <dir>/<name>
 ```
 > `;` 分隔兼容 PowerShell 和 Bash。blink 模板确定正确，无需前一步失败中止。
+>
+> `--ccs-ready` 保证编译后目录干净、CCS IDE 可直接打开，无需手动清理 gmake 残留物。
 
 如需改延时，scaffold 后编辑 `main.c` 中的 `delay_cycles` 参数再 build。
 
@@ -94,6 +96,31 @@ int main(void) {
 python <skill_dir>/scripts/scaffold_oled.py <name> [--mode menu] [--with-imu] [--i2c hw]
 ```
 生成 OLED UI 工程（含字库/菜单框架）。
+
+### CCS IDE Compatibility（工程可被 CCS 直接打开）
+
+`scaffold.py` 现在生成完整的 CCS IDE 工程文件，创建后可被 CCS Theia 直接导入：
+- `.project` / `.cproject` / `.ccsproject` — Eclipse 工程描述符
+- `targetConfigs/MSPM0G3519.ccxml` — XDS110 调试器配置
+
+`build.py` 新增两条参数：
+
+| 参数 | 说明 |
+|------|------|
+| `--ccs-ready` | 编译成功后自动清理 gmake 残留物（`ticlang/`、`gcc/`、根目录 `device_linker.cmd`），避免 CCS IDE 链接冲突 |
+| `--clean` | 仅清理残留物，不编译。用于手动 gmake 构建后 |
+
+**标准流程（生成可直接发给用户的 CCS 工程）：**
+```
+python scripts/scaffold.py <name> <sdk_example> -o <dir>; python scripts/build.py <dir>/<name> --yes --ccs-ready
+```
+
+**为什么需要 `--ccs-ready`：** gmake 编译产物（`ticlang/` 中的 `.o` 文件、`gcc/` 中的 GCC 链接脚本、根目录 `device_linker.cmd`）与 CCS IDE 的 `Debug/` 构建输出**重叠**。CCS 链接器会同时链接两套文件，导致：
+- `#10263` MEMORY 段重复
+- `#10056` 符号重定义
+- `#10008` ticlang 解析 GCC 语法失败
+
+清理后工程与 gpio_led 等价，双击 `.project` 即可在 CCS 中打开编译。
 
 ### R4: Generated Macro Verification (SDK 2.04 bug)
 

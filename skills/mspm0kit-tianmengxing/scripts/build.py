@@ -207,11 +207,67 @@ def _auto_cleanup(proj: Path) -> None:
         print(f"[cleanup] {cleaned} issue(s) fixed")
 
 
+def _post_build_cleanup(proj: Path, project_name: str) -> None:
+    """Post-build cleanup: remove gmake artifacts that conflict with CCS IDE.
+    
+    After `build.py --yes`, the project dir contains gmake build artifacts
+    (ticlang/, gcc/, root device_linker.cmd) that overlap with CCS IDE's own
+    Debug/ build output. When CCS imports the project, its linker sees BOTH
+    sets of files → MEMORY overlap errors (#10263/#10264) and symbol redefinition
+    (#10056).
+    
+    This function cleans everything up so the project is "CCS ready":
+    - gcc/  — GCC linker script (ticlang can't parse it)
+    - ticlang/ — gmake .o files + device_linker.cmd (duplicates with Debug/)
+    - Root generated files — device_linker.cmd, device.cmd.genlibs, device.opt
+    """
+    removed = []
+
+    # 1. Remove gcc/ (GCC linker scripts, not needed for ticlang)
+    gcc_dir = proj / "gcc"
+    if gcc_dir.is_dir():
+        shutil.rmtree(gcc_dir, ignore_errors=True)
+        removed.append("gcc/")
+
+    # 2. Remove ticlang/ (gmake build output — keep it for build.py consumers,
+    #    but clean it after build so CCS IDE doesn't get confused)
+    ticlang_dir = proj / "ticlang"
+    if ticlang_dir.is_dir():
+        # Save startup files before removal
+        for sf in ticlang_dir.glob("startup_*.c"):
+            dest = proj / sf.name
+            if not dest.exists():
+                shutil.copy2(sf, dest)
+        shutil.rmtree(ticlang_dir, ignore_errors=True)
+        removed.append("ticlang/")
+
+    # 3. Remove gmake-generated files from project root
+    for name in ["device_linker.cmd", "device.cmd.genlibs", "device.opt"]:
+        f = proj / name
+        if f.exists():
+            f.unlink()
+            removed.append(name)
+
+    # 4. Also remove ti_msp_dl_config.* if in root (belongs in Debug/)
+    for name in ["ti_msp_dl_config.c", "ti_msp_dl_config.h"]:
+        f = proj / name
+        if f.exists():
+            f.unlink()
+            removed.append(name)
+
+    if removed:
+        print(f"[ccs-ready] removed: {', '.join(removed)}")
+        print(f"[ccs-ready] project '{project_name}' is now CCS IDE compatible")
+    else:
+        print(f"[ccs-ready] no gmake artifacts found — project is clean")
+
+
 def main(
     project_dir: str,
     config_path: str | None = None,
     _interactive: bool = True,
     sysconfig_only: bool = False,
+    ccs_ready: bool = False,
 ) -> tuple[bool, str]:
     cfg_path = config_path or str(Path(__file__).resolve().parents[1] / "config.json")
     if not Path(cfg_path).exists():
@@ -316,6 +372,11 @@ def main(
 
     out_files = list(ticlang_dir.glob("*.out"))
     out_path = str(out_files[0]) if out_files else f"{ticlang_dir}/{proj.name}.out"
+
+    # Post-build cleanup: remove gmake artifacts that conflict with CCS IDE
+    if ccs_ready:
+        _post_build_cleanup(proj, proj.name)
+
     return True, out_path
 
 
@@ -328,15 +389,27 @@ if __name__ == "__main__":
     parser.add_argument("--sysconfig-only", action="store_true",
                         help="Run only SysConfig, then print generated macro names and stop (no gmake). "
                              "Use this after editing .syscfg to get ground-truth macros BEFORE writing the .c.")
+    parser.add_argument("--ccs-ready", action="store_true",
+                        help="After successful build, clean all gmake artifacts (ticlang/, gcc/, "
+                             "device_linker.cmd) so the project can be opened directly in CCS IDE "
+                             "without MEMORY overlap or symbol redefinition errors.")
+    parser.add_argument("--clean", action="store_true",
+                        help="Run only post-build cleanup (no build). Use after manual gmake build.")
     args = parser.parse_args()
     if args.rebuild:
         ticlang = Path(args.project_dir) / "ticlang"
         if ticlang.exists():
             shutil.rmtree(ticlang)
             print("[rebuild] removed ticlang/ for fresh regeneration")
+    # --clean: run only cleanup (no build)
+    if args.clean:
+        proj = Path(args.project_dir).resolve()
+        _post_build_cleanup(proj, proj.name)
+        raise SystemExit(0)
     # --sysconfig-only is meant for non-interactive agent use; skip prompts.
     interactive = not (args.yes or args.sysconfig_only)
-    ok, msg = main(args.project_dir, _interactive=interactive, sysconfig_only=args.sysconfig_only)
+    ok, msg = main(args.project_dir, _interactive=interactive, sysconfig_only=args.sysconfig_only,
+                   ccs_ready=args.ccs_ready)
     if ok:
         if args.sysconfig_only:
             print(f"\nSysConfig done\n  Header: {msg}")

@@ -36,6 +36,17 @@ SYSCTL.clockTreeEn           = true;
 
 简单项目保持 `main.c` 即可。
 
+## CCS IDE Compatibility
+
+`scaffold.py` 自动生成 Eclipse 工程文件（`.project` / `.cproject` / `.ccsproject` / `targetConfigs/`），
+确保 CCS IDE 能直接识别并打开创建的工程。
+
+`build.py --ccs-ready` 编译后自动清理 gmake 构建产物（`ticlang/`、`gcc/`、根目录
+`device_linker.cmd` 等），避免与 CCS IDE 的 `Debug/` 构建冲突导致 MEMORY overlap 或
+symbol redefinition 错误。
+
+> **使用方式**：`build.py <project_dir> --yes --ccs-ready` 一键编译 + CCS 就绪。
+
 ## Pin Table — Tianmengxing MSPM0G3507
 
 ### Completely Unusable (never assign)
