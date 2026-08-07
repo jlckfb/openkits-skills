@@ -61,9 +61,17 @@ The entire chain runs locally — no code is uploaded, no cloud build required.
 | [mspm0kit-tianqiaoxing](skills/mspm0kit-tianqiaoxing/) | Board | Tianqiaoxing MSPM0G3519 dev board |
 | [mspm0kit-tianmengxing](skills/mspm0kit-tianmengxing/) | Board | Tianmengxing MSPM0G3507 dev board |
 
+### Rockchip RK3566 Platform (New)
+
+| Skill | Type | Description |
+|-------|------|-------------|
+| [rk3566-sdk-build](skills/rk3566-sdk-build/) | Platform | RK3566 (TaishanPi 1M) Linux SDK build & flash helper: sync sources, build buildroot/debian/ubuntu, generate & flash update.img |
+| [rk3566-debug](skills/rk3566-debug/) | Platform | RK3566 debugging & troubleshooting: adb, serial (UART) log capture, dmesg, known-issue fixes |
+| [rk3566-peripherals](skills/rk3566-peripherals/) | Platform | RK3566 peripheral development: GPIO/I2C/SPI/UART/PWM device tree & userspace, board hardware reference |
+
 ### Other Platforms
 
-Coming soon: STM32 / ESP32 / GD32 / Rockchip / K230 / RP2350 / CW32 / Renesas / FPGA / SF32LB52
+Coming soon: STM32 / ESP32 / GD32 / K230 / RP2350 / CW32 / Renesas / FPGA / SF32LB52
 
 ### Example (Tianmengxing MSPM0G3507)
 

@@ -61,9 +61,17 @@ openkits-skills 的思路是：把这些板级知识沉淀到 skill 文件里，
 | [mspm0kit-tianqiaoxing](skills/mspm0kit-tianqiaoxing/) | 板卡 | 天巧星 MSPM0G3519 开发板 |
 | [mspm0kit-tianmengxing](skills/mspm0kit-tianmengxing/) | 板卡 | 天猛星 MSPM0G3507 开发板 |
 
+### Rockchip RK3566 平台（新增）
+
+| Skill | 类型 | 说明 |
+|-------|------|------|
+| [rk3566-sdk-build](skills/rk3566-sdk-build/) | 平台 | RK3566（泰山派 1M）Linux SDK 编译与烧录：同步源码、编译 buildroot/debian/ubuntu、生成并烧录 update.img |
+| [rk3566-debug](skills/rk3566-debug/) | 平台 | RK3566 调试与排障：adb、串口（UART）日志抓取、dmesg、常见问题修复 |
+| [rk3566-peripherals](skills/rk3566-peripherals/) | 平台 | RK3566 外设开发：GPIO/I2C/SPI/UART/PWM 设备树与用户态，板级硬件参考 |
+
 ### 其他平台
 
-待添加：STM32 / ESP32 / GD32 / Rockchip / K230 / RP2350 / CW32 / 瑞萨 / FPGA / SF32LB52
+待添加：STM32 / ESP32 / GD32 / K230 / RP2350 / CW32 / 瑞萨 / FPGA / SF32LB52
 
 ### 实际效果示例（天猛星 MSPM0G3507）
 
