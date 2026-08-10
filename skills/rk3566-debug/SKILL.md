@@ -5,6 +5,17 @@ description: 'RK3566 (TaishanPi 1M) debugging & troubleshooting: adb, serial log
 
 # rk3566-debug — 泰山派 RK3566 调试与排障
 
+## 使用前提（环境确认）
+
+> 调用本 skill 前，先确认以下两项；缺什么就给什么。
+
+1. **板子**：有泰山派 1M 板子，且已烧录可启动固件（固件编译/烧录见 `rk3566-sdk-build`）。
+2. **调试通道**（至少一个）：
+   - **adb**：板子 USB 连电脑，`adb devices -l` 能识别
+   - **串口**：CH340 USB 转串口，波特率 **1500000**（脚本：`<skill_dir>/scripts/serial_log.py --port COMx --baud 1500000`）
+
+确认完毕再进入排障流程。
+
 ## 交互方式（逐步引导）
 
 调用本 skill 后：

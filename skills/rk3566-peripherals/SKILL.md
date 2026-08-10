@@ -5,6 +5,15 @@ description: 'RK3566 (TaishanPi 1M) peripheral development: GPIO/I2C/SPI/UART/PW
 
 # rk3566-peripherals — 泰山派 RK3566 外设开发
 
+## 使用前提（环境确认）
+
+> 调用本 skill 前，先确认以下两项；缺什么就给什么。
+
+1. **SDK 与编译环境**：有泰山派 kernel6.1 SDK 且能编译（完整环境确认见 `rk3566-sdk-build`）。
+2. **板子与调试通道**：有泰山派 1M 板子，adb / 串口（1500000）可用（见 `rk3566-debug`）。
+
+确认完毕再进入开发流程。
+
 ## 交互方式（逐步引导）
 
 调用本 skill 后：

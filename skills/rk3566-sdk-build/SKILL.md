@@ -5,6 +5,24 @@ description: 'RK3566 (TaishanPi 1M) Linux SDK build & flash helper: extract, rep
 
 # rk3566-sdk-build — 泰山派 RK3566 SDK 编译与烧录
 
+## 使用前提（环境确认）
+
+> 调用本 skill 前，**先逐步确认使用环境**：一次只问一项，等用户回答后再问下一项；缺什么就给什么教程/下载位置，不一次性倾倒全部内容。
+
+1. **SDK**：有泰山派 kernel6.1 Linux SDK（20260403）吗？
+   - 有 → 记录 SDK 路径
+   - 没有 → 提供下载位置：立创 wiki 下载中心 `https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html`（含 SDK 分卷包与泰山派完整资料包）；解压方式 `./extract_sdk.sh` → `./extracted_sdk`
+2. **SDK 位置**：本地目录还是远程服务器？
+   - 远程 → 问 IP / SSH 账号 / 连接方式，并确认可连通
+   - 本地 → 记录绝对路径
+3. **编译环境**：本机 Ubuntu 22.04 还是 Docker？
+   - 本机 → 检查依赖：repo（Python 3）、git、tar、xz
+   - Docker → 问是否有镜像 `tspi-kernel6-1-env:latest`；没有 → 给 Dockerfile 构建教程（见"五、Docker 编译"）
+4. **板子**：有泰山派 1M 板子吗？调试通道可用？（adb / 串口 1500000，见 `rk3566-debug`）
+5. **烧录工具**：RKDevTool（Windows）/ rkdeveloptool（Linux）就绪？（见 `references/flash-tools.md`）
+
+确认完毕先汇总一份"你的环境清单"，再进入正式流程。
+
 ## 交互方式（逐步引导）
 
 调用本 skill 后：
@@ -32,12 +50,6 @@ description: 'RK3566 (TaishanPi 1M) Linux SDK build & flash helper: extract, rep
 6. **产物确认**：检查 `output/update/Image/update.img` 时间戳与大小。
 7. **烧录**：Windows RKDevTool / Linux upgrade_tool 烧 update.img，要点与 rootfs 12G 分区表见 `references/flash-tools.md`；SDK 目录结构见 `references/sdk-layout.md`。
 8. **验证**：板子启动后用 `rk3566-debug` skill 查串口日志 / adb 状态。
-
-## 环境要求
-
-- **主机**：Ubuntu 22.04 x86_64（或 Docker 容器）
-- **依赖**：repo 工具（Python 3）、git、tar、xz
-- **无 sudo 用户**：用 Docker 编译（见下文）
 
 ## 一、获取与解压 SDK
 
@@ -124,15 +136,15 @@ cp ubuntu/ubuntu-jammy.img rockdev/rootfs.img
 
 ```bash
 # 镜像已构建（基础 ubuntu:22.04 + 交叉工具链）
-docker run -d --name rk3566-build --privileged \
+docker run -d --name tspi-sdk-build --privileged \
   -v <SDK路径>:/home/liguoyi/EX_DISK_2T/tspi-1m-linux-kernel6-1-sdk/extracted_sdk \
-  rk3566-sdk-env:latest sleep infinity
+  tspi-kernel6-1-env:latest sleep infinity
 
 # 环境修复（binfmt + live-build）
-docker exec -u liguoyi rk3566-build bash <SDK>/tools/tspi-docker-env-fix.sh
+docker exec -u liguoyi tspi-sdk-build bash <SDK>/tools/tspi-docker-env-fix.sh
 
 # 编译
-docker exec -u liguoyi rk3566-build bash -c \
+docker exec -u liguoyi tspi-sdk-build bash -c \
   'cd /home/liguoyi/EX_DISK_2T/tspi-1m-linux-kernel6-1-sdk/extracted_sdk && ./build.sh'
 ```
 
