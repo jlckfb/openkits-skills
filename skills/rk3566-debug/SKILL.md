@@ -69,6 +69,13 @@ description: 'RK3566 (TaishanPi 1M) debugging & troubleshooting: adb, serial log
 
 **适用**：板子启动异常、显示黑屏、网络/adb 不可用等问题排查
 
+> **Android13 系统差异**：本 skill 的调试通道（adb / 串口 1500000 / dmesg）对 Android 同样适用。
+> - Android 的 adb **默认开启**（无需配置 usbdevice，Linux 才需要）
+> - 串口日志波特率同为 1500000，抓取脚本相同（`<skill_dir>/scripts/serial_log.py`）
+> - Android 常用：`adb shell dmesg` / `adb logcat`（应用日志）/ `adb reboot loader`（进烧录模式）
+> - Android 固件编译/烧录见 `rk3566-android-build` skill
+
+
 ## 一、调试通道
 
 ### ADB（最常用）

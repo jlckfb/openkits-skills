@@ -68,6 +68,14 @@ description: 'RK3566 (TaishanPi 1M) peripheral development: GPIO/I2C/SPI/UART/PW
 **SoC**: Rockchip RK3566（RK3568 同系）
 **内核**: 6.1.141（kernel-6.1 目录）
 
+
+
+> **Android13 系统差异**：本 skill 的硬件知识（GPIO 分组 / 引脚复用 / UART 位置 / 原理图数据）与系统无关，Android 同样适用。
+> - **设备树**：Android13 内核为 5.10，主设备树同名 `tspi-rk3566-user-v10-linux.dts`（在 `kernel-5.10/` 下）
+> - **内核/模块编译**：Android 用 SDK 的 `./build.sh -K`（或 `cd kernel-5.10 && make ...`），不走 Linux 的 `./build.sh kernel`；见 `rk3566-android-build`
+> - **用户态访问**：Android 默认无 sysfs GPIO 权限，外设访问通常走 HAL / root shell，或编译到系统镜像
+> - **DTS 配置项**：Android 的 kernel config 含 `android-13.config` 与 `rk356x.config`（Linux 无）
+
 ## 硬件参考（来自官方原理图，SchemCP 解析）
 
 > 详细数据见 `hardware/` 目录：
