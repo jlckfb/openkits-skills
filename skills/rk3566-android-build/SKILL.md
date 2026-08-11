@@ -188,7 +188,7 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
 1. 系统环境检查（sudo 权限 / Ubuntu 22.04 / CPU / 磁盘）
 2. 配置 apt 镜像源 + 网络
-3. 安装编译依赖（含 openjdk-8、live-build）
+3. 安装编译依赖（含 live-build；openjdk-8 需单独安装，见"五、已知问题速查"）
 4. 系统配置（内核模块 / QEMU / 时区）
 5. Repo 配置检查（manifest 本地化跟踪）
 6. 环境验证（QEMU / binfmt）

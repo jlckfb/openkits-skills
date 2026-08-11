@@ -324,7 +324,9 @@ install_dependencies() {
     (
         apt-get install -y --no-install-recommends $ALL_PACKAGES > /tmp/apt-install.log 2>&1
     ) &
-    show_spinner $! "安装系统依赖包"
+    local apt_pid=$!
+    show_spinner $apt_pid "安装系统依赖包"
+    wait $apt_pid
 
     if [ $? -eq 0 ]; then
         log_info "系统依赖包安装完成"
@@ -376,7 +378,9 @@ install_live_build() {
         cd /
         rm -rf "$TMP_DIR"
     ) &
-    show_spinner $! "编译安装 live-build"
+    local lb_pid=$!
+    show_spinner $lb_pid "编译安装 live-build"
+    wait $lb_pid
 
     if [ $? -eq 0 ] && command -v lb &> /dev/null; then
         log_info "live-build 安装完成"
