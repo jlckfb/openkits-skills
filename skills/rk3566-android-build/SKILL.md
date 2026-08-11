@@ -197,3 +197,63 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 # 在 SDK 源码目录下运行（需 sudo）
 sudo bash scripts/android_env_init.sh
 ```
+
+
+## 七、Android 系统 App 开发环境（本机 Windows 实测）
+
+开发/验证 Android 系统 App 需要：JDK 17 + Gradle + Android SDK（+ OpenCV 等库，按需）。
+
+**版本要求**（Android Gradle Plugin 8.x 需 JDK 17）：
+- **JDK 17**：清华镜像下载 `https://mirrors.tuna.tsinghua.edu.cn/Adoptium/17/jdk/x64/windows/OpenJDK17U-jdk_x64_windows_hotspot_17.0.20_8.zip`，解压后设 `JAVA_HOME`
+- **Gradle 8.7**：腾讯镜像 `https://mirrors.cloud.tencent.com/gradle/gradle-8.7-bin.zip`，解压加入 PATH
+- **Android SDK**：platform 需与 `compileSdk` 匹配（Android13 = platform-33，`https://dl.google.com/android/repository/platform-33_r02.zip` 解压到 `platforms/android-33`，注意 zip 内含 `android-13/` 顶层目录需提升到根）
+- **Maven 镜像**（`settings.gradle`/`build.gradle` 里配置，加速依赖下载）：
+  - `https://maven.aliyun.com/repository/google`
+  - `https://maven.aliyun.com/repository/public`
+  - `https://maven.aliyun.com/repository/gradle-plugin`
+
+**构建命令**（项目根目录，`local.properties` 写 `sdk.dir`）：
+```bash
+gradle assembleDebug --no-daemon
+```
+产物：`app/build/outputs/apk/debug/app-debug.apk`。
+
+**OpenCV Android**（如需人脸识别/图像处理）：
+- 下载：`https://github.com/opencv/opencv/releases/download/4.9.0/opencv-4.9.0-android-sdk.zip`（GitHub 慢可用 ghfast 镜像 `https://ghfast.top/<原URL>`）
+- `settings.gradle` 引入 `include ':opencv'`，指向解压目录 `/sdk`；`app` 依赖 `implementation project(':opencv')`
+- 用前 `System.loadLibrary("opencv_java4")`（OpenCVLoader.initDebug 在部分设备不可靠）
+- 原 sdk 的 `build.gradle` 依赖 kotlin 插件且 compileSdk 31——去掉 `apply plugin: 'kotlin-android'` 并把 compileSdk/targetSdk 改到 33 才能在本环境编译
+
+## 八、开机自启 App（Android 系统应用）
+
+开机自动启动 App 的两步：Manifest 注册 BOOT_COMPLETED 接收器 + 收到广播启动 Activity。
+
+**1. Manifest 权限与接收器**：
+```xml
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+<receiver android:name=".BootReceiver" android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+    </intent-filter>
+</receiver>
+```
+
+**2. BootReceiver**：
+```java
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+            Intent i = new Intent(context, MainActivity.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(i);
+        }
+    }
+}
+```
+
+**3. 关键注意**（Android 13 实测）：
+- 普通安装的 App 收 BOOT_COMPLETED 可能受限（Android 8+ 后台限制）；要保证开机自启，**必须作为系统应用编译进固件**（放 `packages/apps/`，配 Android.mk 加进 `PRODUCT_PACKAGES`），或做成 Device Owner
+- App 需要 `CAMERA` 等权限时，系统应用可在 `privapp-permissions` 预授权，避免首次开机弹窗
+- 全屏沉浸：`getWindow().getDecorView().setSystemUiVisibility(SYSTEM_UI_FLAG_FULLSCREEN | ... IMMERSIVE_STICKY)`
+- 调试期先 `adb install` 验证功能，跑通后再编入 SDK 固件（迭代快）
