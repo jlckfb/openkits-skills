@@ -178,3 +178,26 @@ nmcli device wifi list
 | WiFi 扫描空 | NM 不管理 / 天线 | managed=true / 接天线 |
 | oem/userdata 挂载失败 | fstab ext2 挂 ext4 | 改 ext4 |
 | X 服务崩溃循环 | rootfs 磁盘满 | resize2fs 扩容 |
+
+## 七、同屏/投屏工具（scrcpy）排障
+
+> 实测结论（2026-08，Android13 固件）：scrcpy **2.3.1 完全兼容**；scrcpy **1.14 不兼容**（Android 13 移除旧 API）。
+
+| 现象 | 根因 | 解决 |
+|---|---|---|
+| 双击 scrcpy 无反应 / 报 `Multiple (2) ADB devices` | 电脑挂了多个 adb 设备（板子+手机） | 拔掉多余设备，或 `scrcpy -s <serial>` / `scrcpy -d`（只选 USB） |
+| 窗口一闪而过（旧版 1.x） | 旧 API 被 Android 13 移除：`IClipboard$Stub$Proxy.addPrimaryClipChangedListener`、`SurfaceControl.setDisplaySurface` 的 `displayToken must not be null` | 换 scrcpy ≥ 2.3.1（server 约 66KB，1.x 仅 33KB） |
+| 新版连接正常但画面黑屏 | 视频编码器/缓冲异常 | 查 logcat：`adb logcat -d | grep -E "c2.rk.avc|Codec2|HW_VIDEO_ENCODER"`，正常可见 `c2.rk.avc.encoder` 创建 block pool |
+| 指定 serial 后可连，双击不行 | 默认不指定设备 | 建 bat：`scrcpy -s <板子serial>` 固定设备 |
+
+scrcpy 快速验证（板子已连 adb 时）：
+
+```bash
+scrcpy --list-encoders -s <serial>   # 应列出 c2.rk.avc.encoder / c2.android.avc.encoder 等
+scrcpy -s <serial>                   # 正常连接
+```
+
+板端 server 进程确认：`adb shell "ps -A | grep app_process"` 应见 `com.genymobile.scrcpy.Server`。
+
+版本判断：`scrcpy --version`（2.x 依赖 avcodec-60；1.x 依赖 avcodec-58）。
+
